@@ -1,0 +1,3 @@
+-- Safe, repeatable additions for the Student -> Teacher application flow.
+SET @q=IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='teacher_verifications' AND column_name='qualification')=0,'ALTER TABLE teacher_verifications ADD COLUMN qualification VARCHAR(255) NULL AFTER full_name','SELECT 1'); PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
+SET @q=IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='teacher_verifications' AND column_name='original_filename')=0,'ALTER TABLE teacher_verifications ADD COLUMN original_filename VARCHAR(255) NULL AFTER proof_file_path','SELECT 1'); PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;

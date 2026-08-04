@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Env
+.env
+!.env.example
+
+# Node
+node_modules/
+dist/
+.vite/
+frontend/test-results/
+frontend/playwright-report/
+
+# Uploads
+backend/app/uploads/notes/*
+backend/app/uploads/pdf/*
+backend/app/uploads/profile/*
+backend/app/uploads/resources/*
+backend/app/uploads/flashcards/*
+backend/app/private/
+backend/app/private/**
+!backend/app/uploads/**/.gitkeep
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+*.log
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage

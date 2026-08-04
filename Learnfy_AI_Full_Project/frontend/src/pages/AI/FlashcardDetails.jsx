@@ -1,0 +1,31 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { FiArrowLeft, FiHeart, FiImage, FiShare2, FiTrash2 } from "react-icons/fi";
+import toast from "react-hot-toast";
+
+import ExportFlashcardsMenu from "../../components/flashcards/ExportFlashcardsMenu";
+import FlashcardStudyMode from "../../components/flashcards/FlashcardStudyMode";
+import FlashcardViewer from "../../components/flashcards/FlashcardViewer";
+import ShareFlashcardsModal from "../../components/flashcards/ShareFlashcardsModal";
+import Loader from "../../components/Loader";
+import { deleteFlashcardSet, getFlashcardSet, getFlashcardStudySessions, toggleFlashcardFavourite, toggleFlashcardSetFavourite, uploadFlashcardImage } from "../../services/api";
+
+export default function FlashcardDetails() {
+  const { id } = useParams(); const navigate = useNavigate(); const [item, setItem] = useState(null); const [sessions, setSessions] = useState([]); const [mode, setMode] = useState("browse"); const [sharing, setSharing] = useState(false);
+  useEffect(() => {
+    Promise.all([getFlashcardSet(id), getFlashcardStudySessions(id)])
+      .then(([setResponse, sessionResponse]) => { setItem(setResponse.data); setSessions(sessionResponse.data); })
+      .catch(() => toast.error("Flashcard set not found"));
+  }, [id]);
+  if (!item) return <Loader />;
+  const remove = async () => { if (!window.confirm("Delete this flashcard set and its study history?")) return; try { await deleteFlashcardSet(item.id); toast.success("Flashcard set deleted"); navigate("/ai/flashcards"); } catch { toast.error("Could not delete set"); } };
+  const favouriteCard = async (card) => { const response = await toggleFlashcardFavourite(card.id); setItem((current) => ({ ...current, cards: current.cards.map((entry) => entry.id === card.id ? { ...entry, is_favourite: response.data.is_favourite } : entry) })); };
+  return <div className="mx-auto max-w-4xl space-y-6"><Link to="/ai/flashcards" className="inline-flex items-center gap-2 text-sm font-bold text-primary-600"><FiArrowLeft /> Back to flashcards</Link><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><div className="flex items-center gap-2"><span className="rounded bg-primary-50 px-2 py-1 text-xs font-bold text-primary-700">{item.subject}</span><span className="text-xs uppercase text-slate-400">{item.language} · {item.difficulty}</span></div><h1 className="mt-3 text-3xl font-black text-slate-900 dark:text-white">{item.title}</h1><p className="mt-1 text-sm text-slate-500">{item.cards.length} cards{item.source_name ? ` · Source: ${item.source_name}` : ""}</p></div><div className="flex flex-wrap gap-2"><button className="btn-secondary" onClick={async () => { const response = await toggleFlashcardSetFavourite(item.id); setItem(response.data); }}><FiHeart className={item.is_favourite ? "fill-current text-red-500" : ""} /></button><button className="btn-secondary" onClick={() => setSharing(true)}><FiShare2 /> Share</button><button className="btn-secondary text-red-600" onClick={remove}><FiTrash2 /></button></div></div>
+    <div className="flex gap-2"><button onClick={() => setMode("browse")} className={mode === "browse" ? "btn-primary" : "btn-secondary"}>Browse</button><button onClick={() => setMode("study")} className={mode === "study" ? "btn-primary" : "btn-secondary"}>Study Mode</button></div>
+    {mode === "browse" ? <FlashcardViewer cards={item.cards} language={item.language} onFavourite={favouriteCard} /> : <FlashcardStudyMode flashcardSet={item} onComplete={(session) => setSessions((old) => [session, ...old])} />}
+    <section className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><h2 className="font-bold text-slate-900 dark:text-white">Export flashcards</h2><p className="text-sm text-slate-500">Download this private set as PDF or UTF-8 CSV.</p></div><ExportFlashcardsMenu setId={item.id} /></div></section>
+    <section className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900"><h2 className="font-bold text-slate-900 dark:text-white">Optional card images</h2><p className="mt-1 text-sm text-slate-500">Upload a relevant JPG, PNG, or WebP image. Files are validated and stored under generated paths.</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{item.cards.map((card, index) => <label key={card.id} className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700"><span className="truncate">Card {index + 1}: {card.question}</span><FiImage className={card.image_url ? "text-emerald-500" : "text-slate-400"} /><input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; const data = new FormData(); data.append("file", file); try { const response = await uploadFlashcardImage(card.id, data); setItem((current) => ({ ...current, cards: current.cards.map((entry) => entry.id === card.id ? { ...entry, image_url: response.data.image_url } : entry) })); toast.success("Card image uploaded"); } catch (error) { toast.error(error.response?.data?.detail || "Could not upload image"); } }} /></label>)}</div></section>
+    <section><h2 className="mb-3 text-lg font-bold dark:text-white">Progress history</h2><div className="space-y-2">{sessions.map((session) => <div key={session.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-900"><span className="text-slate-500">{new Date(session.completed_at).toLocaleString()}</span><span className="font-bold text-primary-600">{Math.round(session.score_percentage)}%</span><span className="text-slate-500">{session.correct_count}/{session.total_cards} · {session.duration_seconds}s</span></div>)}{!sessions.length && <p className="text-sm text-slate-500">No completed study sessions yet.</p>}</div></section>
+    <ShareFlashcardsModal flashcardSet={item} isOpen={sharing} onClose={() => setSharing(false)} onChanged={setItem} />
+  </div>;
+}

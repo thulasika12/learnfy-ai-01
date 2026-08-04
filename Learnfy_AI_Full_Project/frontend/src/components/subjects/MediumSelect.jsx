@@ -1,0 +1,3 @@
+import { usePreferences } from "../../hooks/usePreferences";
+export const MEDIUMS=[{value:"ta",labels:{en:"Tamil",ta:"தமிழ்",si:"දෙමළ"}},{value:"si",labels:{en:"Sinhala",ta:"சிங்களம்",si:"සිංහල"}},{value:"en",labels:{en:"English",ta:"ஆங்கிலம்",si:"ඉංග්‍රීසි"}}];
+export default function MediumSelect({value,onChange,className="input-field",...props}){const{language}=usePreferences();return <select className={className} value={value} onChange={e=>onChange(e.target.value)} {...props}><option value="">Select learning medium</option>{MEDIUMS.map(x=><option key={x.value} value={x.value}>{x.labels[language]||x.labels.en}</option>)}</select>;}
