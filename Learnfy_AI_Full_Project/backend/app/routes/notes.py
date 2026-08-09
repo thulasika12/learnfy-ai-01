@@ -84,7 +84,7 @@ def list_notes(
     current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """List all notes with optional search and subject filter (public endpoint)."""
-    query = db.query(Note).options(joinedload(Note.author))
+    query = db.query(Note).options(joinedload(Note.author)).filter(Note.is_hidden.is_(False))
 
     if search:
         like_pattern = f"%{search}%"
@@ -110,6 +110,8 @@ def get_note(
 ):
     note = db.query(Note).options(joinedload(Note.author)).filter(Note.id == note_id).first()
     if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    if note.is_hidden and not (current_user and (current_user.id == note.user_id or current_user.role == UserRole.admin)):
         raise HTTPException(status_code=404, detail="Note not found")
     return _serialize_note(note, current_user, db)
 

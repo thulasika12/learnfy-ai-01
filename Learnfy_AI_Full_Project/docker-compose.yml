@@ -8,13 +8,20 @@ services:
       - "3306:3306"
     volumes:
       - learnfy_mysql_data:/var/lib/mysql
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./database/seed_data.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-learnfy_local_password}"]
       interval: 5s
       timeout: 5s
       retries: 20
+
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: mysql+pymysql://root:${MYSQL_ROOT_PASSWORD:-learnfy_local_password}@database:3306/learnfy_ai
+    depends_on:
+      database:
+        condition: service_healthy
 
   backend:
     build: ./backend
@@ -25,11 +32,20 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       FRONTEND_URL: http://localhost:5173
       CORS_ORIGINS: http://localhost:5173
+      BACKEND_PUBLIC_URL: ${BACKEND_PUBLIC_URL:-http://localhost:8000}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-payhere}
+      PAYHERE_ENABLED: ${PAYHERE_ENABLED:-false}
+      PAYHERE_SANDBOX: ${PAYHERE_SANDBOX:-true}
+      PAYHERE_MERCHANT_ID: ${PAYHERE_MERCHANT_ID:-}
+      PAYHERE_MERCHANT_SECRET: ${PAYHERE_MERCHANT_SECRET:-}
+      PAYHERE_CURRENCY: LKR
+      PAYHERE_30_DAY_AMOUNT: ${PAYHERE_30_DAY_AMOUNT:-500.00}
+      PAYHERE_365_DAY_AMOUNT: ${PAYHERE_365_DAY_AMOUNT:-5000.00}
     ports:
       - "8000:8000"
     depends_on:
-      database:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   frontend:
     build:

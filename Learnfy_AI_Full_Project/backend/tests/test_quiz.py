@@ -93,8 +93,9 @@ class QuizApiTests(unittest.TestCase):
         self.assertEqual(self.client.post("/ai/quiz/submit", json=self.answers(generated)).status_code, 404)
 
     def test_supported_quiz_languages(self):
-        for language in ("en", "ta", "si"):
-            self.assertEqual(self.generate(language)["language"], language)
+        with patch("app.services.entitlement_service.settings.FREE_QUIZ_LIMIT", 3):
+            for language in ("en", "ta", "si"):
+                self.assertEqual(self.generate(language)["language"], language)
 
 
 if __name__ == "__main__":

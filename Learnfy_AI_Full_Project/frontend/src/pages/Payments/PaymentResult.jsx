@@ -4,15 +4,16 @@ import { FiCheckCircle, FiClock, FiXCircle } from "react-icons/fi";
 
 import { getPaymentStatus } from "../../services/api";
 import { usePreferences } from "../../hooks/usePreferences";
+import { useAuth } from "../../hooks/useAuth";
 
 const FINAL_STATUSES = new Set(["success", "failed", "cancelled", "chargeback"]);
 
 export default function PaymentResult() {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get("order_id");
-  const returnedCancelled = searchParams.get("cancelled") === "1";
   const { t } = usePreferences();
-  const [status, setStatus] = useState(returnedCancelled ? "cancelled" : "pending");
+  const { refreshUser } = useAuth();
+  const [status, setStatus] = useState("pending");
   const [payment, setPayment] = useState(null);
   const [error, setError] = useState("");
 
@@ -25,7 +26,8 @@ export default function PaymentResult() {
         const response = await getPaymentStatus(orderId);
         const serverStatus = response.data.payment.status;
         setPayment(response.data.payment);
-        setStatus(serverStatus === "initiated" ? (returnedCancelled ? "cancelled" : "pending") : serverStatus);
+        setStatus(serverStatus === "initiated" ? "pending" : serverStatus);
+        if (serverStatus === "success") await refreshUser();
         if (!FINAL_STATUSES.has(serverStatus) && attempts < 10) {
           attempts += 1;
           timer = window.setTimeout(check, 2500);
@@ -36,7 +38,7 @@ export default function PaymentResult() {
     };
     check();
     return () => window.clearTimeout(timer);
-  }, [orderId, returnedCancelled, t]);
+  }, [orderId, refreshUser, t]);
 
   const success = status === "success";
   const pending = status === "pending" || status === "initiated";

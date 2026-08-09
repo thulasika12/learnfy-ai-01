@@ -48,8 +48,10 @@ def _serialize_group(group: StudyGroup, current_user: Optional[User] = None) -> 
     return data
 
 
-def _get_group_or_404(db: Session, group_id: int) -> StudyGroup:
-    group = db.query(StudyGroup).filter(StudyGroup.id == group_id).first()
+def _get_group_or_404(db: Session, group_id: int, include_hidden: bool = False) -> StudyGroup:
+    query = db.query(StudyGroup).filter(StudyGroup.id == group_id)
+    if not include_hidden: query = query.filter(StudyGroup.is_hidden.is_(False))
+    group = query.first()
     if not group:
         raise HTTPException(status_code=404, detail="Study group not found")
     return group
@@ -102,7 +104,7 @@ def list_groups(
     groups = (
         db.query(StudyGroup)
         .options(joinedload(StudyGroup.members), joinedload(StudyGroup.join_requests))
-        .all()
+        .filter(StudyGroup.is_hidden.is_(False)).all()
     )
     return [_serialize_group(g, current_user) for g in groups]
 

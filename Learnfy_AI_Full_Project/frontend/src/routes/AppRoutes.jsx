@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 
 import MainLayout from "../layouts/MainLayout";
@@ -22,36 +23,41 @@ import ProgressPage from "../pages/Student/Progress";
 import Settings from "../pages/Student/Settings";
 import Notifications from "../pages/Student/Notifications";
 
-import TeacherDashboard from "../pages/Teacher/Dashboard";
-import TeacherVerification from "../pages/Teacher/Verification";
-import AdminDashboard from "../pages/Admin/AdminDashboard";
-import SubjectManagement from "../pages/Admin/SubjectManagement";
-import TeacherVerifications from "../pages/Admin/TeacherVerifications";
+const TeacherDashboard = lazy(() => import("../pages/Teacher/Dashboard"));
+const TeacherVerification = lazy(() => import("../pages/Teacher/Verification"));
+const AdminDashboard = lazy(() => import("../pages/Admin/AdminDashboard"));
+const SubjectManagement = lazy(() => import("../pages/Admin/SubjectManagement"));
+const TeacherVerifications = lazy(() => import("../pages/Admin/TeacherVerifications"));
 import StudentVerification from "../pages/Student/StudentVerification";
-import StudentVerifications from "../pages/Admin/StudentVerifications";
-import UserManagement from "../pages/Admin/UserManagement";
-import ContentModeration from "../pages/Admin/ContentModeration";
-import PaymentAdministration from "../pages/Admin/PaymentAdministration";
-import AuditLogs from "../pages/Admin/AuditLogs";
+const StudentVerifications = lazy(() => import("../pages/Admin/StudentVerifications"));
+const UserManagement = lazy(() => import("../pages/Admin/UserManagement"));
+const ContentModeration = lazy(() => import("../pages/Admin/ContentModeration"));
+const PaymentAdministration = lazy(() => import("../pages/Admin/PaymentAdministration"));
+const AuditLogs = lazy(() => import("../pages/Admin/AuditLogs"));
 
-import AIChat from "../pages/AI/AIChat";
-import PDFSummary from "../pages/AI/PDFSummary";
-import QuizGenerator from "../pages/AI/QuizGenerator";
-import StudyPlanner from "../pages/AI/StudyPlanner";
-import Flashcards from "../pages/AI/Flashcards";
-import FlashcardDetails from "../pages/AI/FlashcardDetails";
-import SharedFlashcard from "../pages/AI/SharedFlashcard";
+const AIChat = lazy(() => import("../pages/AI/AIChat"));
+const PDFSummary = lazy(() => import("../pages/AI/PDFSummary"));
+const QuizGenerator = lazy(() => import("../pages/AI/QuizGenerator"));
+const StudyPlanner = lazy(() => import("../pages/AI/StudyPlanner"));
+const Flashcards = lazy(() => import("../pages/AI/Flashcards"));
+const FlashcardDetails = lazy(() => import("../pages/AI/FlashcardDetails"));
+const SharedFlashcard = lazy(() => import("../pages/AI/SharedFlashcard"));
 
 import StudyGroups from "../pages/Community/StudyGroups";
 import Resources from "../pages/Resources/Resources";
-import Pricing from "../pages/Payments/Pricing";
-import PaymentCheckout from "../pages/Payments/Checkout";
-import PaymentResult from "../pages/Payments/PaymentResult";
-import Subscription from "../pages/Payments/Subscription";
+const Pricing = lazy(() => import("../pages/Payments/Pricing"));
+const PaymentCheckout = lazy(() => import("../pages/Payments/Checkout"));
+const PaymentResult = lazy(() => import("../pages/Payments/PaymentResult"));
+const Subscription = lazy(() => import("../pages/Payments/Subscription"));
+const TrustPage = lazy(() => import("../pages/TrustPage"));
+
+function RouteLoading() {
+  return <div role="status" className="flex min-h-64 items-center justify-center text-sm font-semibold text-primary-600">Loading Learnfy AI…</div>;
+}
 
 export default function AppRoutes() {
   return (
-    <Routes>
+    <Suspense fallback={<RouteLoading />}><Routes>
       {/* Public pages with navbar + footer */}
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
@@ -60,6 +66,15 @@ export default function AppRoutes() {
         <Route path="/resources" element={<Resources />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/flashcards/shared/:token" element={<SharedFlashcard />} />
+        <Route path="/about" element={<TrustPage page="about" />} />
+        <Route path="/support" element={<TrustPage page="support" />} />
+        <Route path="/faq" element={<TrustPage page="faq" />} />
+        <Route path="/privacy" element={<TrustPage page="privacy" />} />
+        <Route path="/terms" element={<TrustPage page="terms" />} />
+        <Route path="/refunds" element={<TrustPage page="refunds" />} />
+        <Route path="/community-guidelines" element={<TrustPage page="community" />} />
+        <Route path="/ai-disclaimer" element={<TrustPage page="ai" />} />
+        <Route path="/data-deletion" element={<TrustPage page="deletion" />} />
       </Route>
 
       {/* Auth pages (split-screen branding layout) */}
@@ -127,6 +142,6 @@ export default function AppRoutes() {
       </Route>
 
       <Route path="*" element={<Home />} />
-    </Routes>
+    </Routes></Suspense>
   );
 }

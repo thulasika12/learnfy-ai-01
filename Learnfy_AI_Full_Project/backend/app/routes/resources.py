@@ -47,7 +47,7 @@ def upload_resource(
 
 @router.get("/")
 def list_resources(grade: Optional[str] = None, subject: Optional[str] = None, medium: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(Resource)
+    query = db.query(Resource).filter(Resource.is_hidden.is_(False))
     if grade: query = query.filter(Resource.grade == grade)
     if subject: query = query.filter(Resource.subject == subject)
     if medium: query = query.filter(Resource.medium == medium)

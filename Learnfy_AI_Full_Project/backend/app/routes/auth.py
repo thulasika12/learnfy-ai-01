@@ -1,7 +1,4 @@
 """Complete authentication routes."""
-from collections import defaultdict, deque
-from datetime import datetime, timezone
-from threading import Lock
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from app.config.database import get_db
@@ -14,21 +11,9 @@ from app.services.auth_service import (register_user, authenticate_user, issue_t
     issue_database_token, consume_token, build_access_token)
 from app.services.email_service import send_password_reset_email
 from app.utils.dependencies import get_current_user
+from app.services.rate_limit import enforce
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-_rate_events = defaultdict(deque)
-_rate_lock = Lock()
-
-def enforce_rate_limit(key: str, limit: int, window_seconds: int):
-    now = datetime.now(timezone.utc).timestamp()
-    with _rate_lock:
-        events = _rate_events[key]
-        while events and events[0] <= now - window_seconds:
-            events.popleft()
-        if len(events) >= limit:
-            raise HTTPException(429, "Too many requests. Please try again later.")
-        events.append(now)
-
 def token_response(db: Session, user: User) -> Token:
     access, refresh = issue_token_pair(db, user)
     return Token(access_token=access, refresh_token=refresh, user=UserOut.model_validate(user))
@@ -36,13 +21,14 @@ def token_response(db: Session, user: User) -> Token:
 
 @router.post("/register", status_code=201)
 def register(payload: UserRegister, request: Request, db: Session = Depends(get_db)):
-    enforce_rate_limit(f"register:{request.client.host if request.client else 'unknown'}", 5, 3600)
+    enforce(request, "register", 5, 3600)
     register_user(db, payload)
     return {"message": "Account created successfully. You can now log in."}
 
 
 @router.post("/login", response_model=Token)
-def login(payload: UserLogin, db: Session = Depends(get_db)):
+def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
+    enforce(request, "login", 10, 900)
     return token_response(db, authenticate_user(db, payload))
 
 
@@ -62,7 +48,8 @@ def logout(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/forgot-password")
-def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(payload: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    enforce(request, "forgot_password", 5, 3600)
     user = db.query(User).filter(User.email == str(payload.email).lower()).first()
     message = "If that email exists, a reset link has been sent."
     if user and user.is_active:
@@ -72,7 +59,8 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
 
 
 @router.post("/reset-password")
-def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(payload: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    enforce(request, "reset_password", 10, 3600)
     record = consume_token(db, payload.reset_token, "password_reset", revoke=True)
     user = db.query(User).filter(User.id == record.user_id, User.email == str(payload.email).lower()).first()
     if not user:

@@ -36,6 +36,7 @@ from app.schemas.ai_schema import (
     FlashcardGenerateResponse,
 )
 from app.services.document_service import extract_text_from_upload
+from app.services.entitlement_service import consume
 from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/ai", tags=["AI Features"])
@@ -47,6 +48,7 @@ def ai_chat(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    consume(db, current_user.id, "ai_chat")
     """AI Doubt Solver — student asks an academic question, AI explains the answer."""
     contextual_question = f"Student grade/level: {payload.grade or 'unspecified'}. Subject: {payload.subject or 'general'}. Learning medium: {payload.medium or 'unspecified'}. Respond in {payload.response_language}. Use age-appropriate, safe language and never exceed the learner's grade level. Question: {payload.question}"
     answer = solve_doubt(contextual_question)
@@ -62,8 +64,10 @@ def ai_chat(
 @router.post("/summarize", response_model=SummarizeResponse)
 def ai_summarize(
     payload: SummarizeRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    consume(db, current_user.id, "summary")
     """AI Note Summarizer — accepts raw text (from a pasted note or extracted PDF) and returns a summary."""
     source = f"Student grade/level: {payload.grade or 'unspecified'}. Subject: {payload.subject or 'general'}. Learning medium: {payload.medium or 'unspecified'}. Respond in {payload.response_language}. Produce a grade-appropriate summary.\n\n{payload.text}"
     summary = summarize_text(source, payload.length)
@@ -78,8 +82,10 @@ def ai_summarize_file(
     grade: str | None = Form(None),
     medium: str | None = Form(None),
     response_language: str = Form("en"),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    consume(db, current_user.id, "summary")
     """Extract text from a TXT/PDF/DOCX file and summarize it."""
     text = extract_text_from_upload(file)
     source = f"Student grade/level: {grade or 'unspecified'}. Subject: {subject or 'general'}. Learning medium: {medium or 'unspecified'}. Respond in {response_language}. Produce a grade-appropriate summary.\n\n{text}"
@@ -92,6 +98,7 @@ def ai_generate_quiz(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    consume(db, current_user.id, "quiz")
     """AI Quiz Generator — generates MCQ questions for a subject/topic, optionally from note text."""
     raw_questions = generate_quiz(
         subject=payload.subject,
@@ -215,8 +222,10 @@ def submit_quiz(
 @router.post("/study-plan", response_model=StudyPlanResponse)
 def ai_study_plan(
     payload: StudyPlanRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    consume(db, current_user.id, "study_planner")
     """AI Study Planner — creates a personalized day-by-day study schedule."""
     plan = generate_study_plan(
         subjects=[f"{subject} ({payload.grade or 'unspecified level'}, {payload.medium or 'unspecified medium'}, respond in {payload.response_language})" for subject in payload.subjects],
@@ -230,7 +239,9 @@ def ai_study_plan(
 @router.post("/flashcards", response_model=FlashcardGenerateResponse)
 def ai_flashcards(
     payload: FlashcardGenerateRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    consume(db, current_user.id, "flashcards")
     cards = [Flashcard(**card) for card in generate_flashcards(payload.topic, payload.count)]
     return FlashcardGenerateResponse(topic=payload.topic, cards=cards)

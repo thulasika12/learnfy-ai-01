@@ -1,6 +1,7 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
+alembic==1.14.0
 pymysql==1.1.1
 cryptography==43.0.1
 pydantic==2.9.2
@@ -18,3 +19,7 @@ reportlab[shaping]==5.0.0
 pytest==8.3.3
 httpx==0.28.1
 stripe==12.4.0
+redis==5.2.1
+boto3==1.35.90
+python-magic-bin==0.4.14; sys_platform == "win32"
+python-magic==0.4.27; sys_platform != "win32"

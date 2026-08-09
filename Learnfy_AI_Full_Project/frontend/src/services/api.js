@@ -86,8 +86,11 @@ export const changePassword = (data) => api.post("/auth/change-password", data);
 // Payments
 // ---------------------------------------------------------------------------
 export const getPaymentPlans = () => api.get("/payments/plans");
+export const getPaymentConfiguration = () => api.get("/payments/config");
 export const createPaymentCheckout = (data) => api.post("/payments/checkout", data);
-export const getMyPayments = () => api.get("/payments/me");
+export const createPayHereOrder = (data) => api.post("/payments/payhere/create-order", data);
+export const openBillingPortal = () => api.post("/payments/portal");
+export const getMyPayments = () => api.get("/payments/subscription/me");
 export const getPaymentStatus = (orderId) => api.get(`/payments/status/${encodeURIComponent(orderId)}`);
 export const getAdminTransactions = () => api.get("/payments/admin/transactions");
 

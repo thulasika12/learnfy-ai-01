@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 
 import Button from "../../components/Button";
 import Loader from "../../components/Loader";
-import { createPaymentCheckout, getPaymentPlans } from "../../services/api";
+import { createPayHereOrder, getPaymentPlans } from "../../services/api";
 import { usePreferences } from "../../hooks/usePreferences";
 
 export default function Checkout() {
@@ -16,6 +16,7 @@ export default function Checkout() {
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [billing, setBilling] = useState({ phone: "", address: "", city: "" });
 
   useEffect(() => {
     getPaymentPlans().then((res) => {
@@ -29,8 +30,14 @@ export default function Checkout() {
     event.preventDefault();
     setSubmitting(true);
     try {
-      const response = await createPaymentCheckout({ plan_code: plan.code });
-      window.location.assign(response.data.checkout_url);
+      const response = await createPayHereOrder({ plan_code: plan.code, ...billing });
+      const form = document.createElement("form");
+      form.method = "POST"; form.action = response.data.checkout_url;
+      Object.entries(response.data.fields).forEach(([name, value]) => {
+        const input = document.createElement("input"); input.type = "hidden"; input.name = name; input.value = value;
+        form.appendChild(input);
+      });
+      document.body.appendChild(form); form.submit();
     } catch (error) {
       toast.error(error.response?.data?.detail || t("payments.checkoutError"));
       setSubmitting(false);
@@ -51,7 +58,10 @@ export default function Checkout() {
         </aside>
         <form onSubmit={submit} className="space-y-5 p-7 lg:p-9">
           <div><h2 className="text-xl font-bold text-slate-900 dark:text-white">{t("payments.billingDetails")}</h2><p className="mt-1 text-sm text-slate-500">{t("payments.billingSubtitle")}</p></div>
-          <Button type="submit" loading={submitting} className="w-full">{t("payments.continueStripe")} <FiExternalLink /></Button>
+          <label className="block text-sm font-medium dark:text-slate-200">{t("payments.phone")}<input required minLength="7" maxLength="30" className="input-field mt-1" value={billing.phone} onChange={(event) => setBilling({...billing, phone:event.target.value})} /></label>
+          <label className="block text-sm font-medium dark:text-slate-200">{t("payments.address")}<input required minLength="3" maxLength="255" className="input-field mt-1" value={billing.address} onChange={(event) => setBilling({...billing, address:event.target.value})} /></label>
+          <label className="block text-sm font-medium dark:text-slate-200">{t("payments.city")}<input required minLength="2" maxLength="100" className="input-field mt-1" value={billing.city} onChange={(event) => setBilling({...billing, city:event.target.value})} /></label>
+          <Button type="submit" disabled={submitting} loading={submitting} className="w-full">{t("payments.continueStripe")} <FiExternalLink /></Button>
           <p className="text-center text-xs text-slate-500">{t("payments.noCardStorage")}</p>
         </form>
       </div>

@@ -1,100 +1,72 @@
-# Learnfy AI Deployment
+# Learnfy AI deployment runbook
 
-## Recommended split deployment
+This is an operational template. Deploy to staging and complete the launch checklist before production.
 
-- Frontend: Netlify
-- Backend: Railway, Koyeb, Northflank, or another Docker/Python host
-- Database: managed MySQL
+## Database migrations
 
-## Backend
+Alembic is the only active schema manager. Never run `database/schema.sql` or the legacy SQL migration files on a new deployment.
 
-Deploy the `backend` directory and use:
-
-```text
-python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
-
-Set these environment variables on the backend host:
-
-```text
-DATABASE_URL=mysql+pymysql://USER:PASSWORD@HOST:3306/learnfy_ai
-JWT_SECRET_KEY=long-random-production-secret
-GEMINI_API_KEY=your-gemini-key
-GEMINI_MODEL=gemini-2.5-flash
-FRONTEND_URL=https://your-site.netlify.app
-CORS_ORIGINS=https://your-site.netlify.app
-UPLOAD_DIR=app/uploads
-SMTP_HOST=your-smtp-host
-SMTP_PORT=587
-SMTP_USERNAME=your-smtp-user
-SMTP_PASSWORD=your-smtp-password
-SMTP_FROM_EMAIL=no-reply@your-domain.example
-BACKEND_PUBLIC_URL=https://your-backend-domain.example
-STRIPE_SECRET_KEY=configure-only-in-host-secret-manager
-STRIPE_WEBHOOK_SECRET=configure-only-in-host-secret-manager
-PDF_UNICODE_FONT_PATH=/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf
-```
-
-Run `database/schema.sql` once for a new database. For an existing database, apply the non-destructive payment migration from the project root:
+Fresh database:
 
 ```powershell
-Get-Content .\database\migrations\002_payhere_payments.sql | & "C:\Program Files\MySQL\MySQL Server 9.7\bin\mysql.exe" -h YOUR_HOST -u YOUR_USER -p YOUR_DATABASE
-Get-Content .\database\migrations\003_flashcards.sql | & "C:\Program Files\MySQL\MySQL Server 9.7\bin\mysql.exe" -h YOUR_HOST -u YOUR_USER -p YOUR_DATABASE
+Set-Location .\backend
+.\venv\Scripts\python.exe -m alembic upgrade head
+.\venv\Scripts\python.exe -m alembic current
 ```
 
-## Stripe test mode
-
-1. Copy a Stripe test secret key into `STRIPE_SECRET_KEY`.
-2. Run `stripe listen --forward-to localhost:8000/payments/webhook` for local webhook forwarding.
-3. Copy the CLI's `whsec_...` signing secret into `STRIPE_WEBHOOK_SECRET`.
-4. Complete Checkout with a Stripe test card and verify Premium activates only after the webhook arrives.
-
-## Stripe live payments
-
-1. Set the live Stripe secret key in `STRIPE_SECRET_KEY`.
-2. Create `https://your-backend-domain.example/payments/webhook` in Stripe Workbench.
-3. Subscribe to `checkout.session.completed`, asynchronous payment success/failure, and expiration events.
-4. Store that endpoint's signing secret in `STRIPE_WEBHOOK_SECRET`.
-5. Run a low-value live transaction and verify the payment becomes successful only after the signed webhook.
-
-The return URL is a browser convenience only. Premium activation occurs exclusively after the backend verifies the Stripe webhook signature, order, server-stored amount, and currency.
-
-## Frontend (Netlify)
-
-Use `frontend` as the base directory. The included `netlify.toml` runs `npm run build` and configures React Router redirects.
-
-Set:
-
-```text
-VITE_API_URL=https://your-backend-domain.example
-```
-
-Deploy the backend first, add its URL to Netlify, then add the final Netlify URL to the backend's `FRONTEND_URL` and `CORS_ORIGINS`.
-
-## Docker on a local computer
-
-From the project root:
+Existing development database: make a verified backup, set `DATABASE_URL`, then run the read-only check:
 
 ```powershell
-$env:GEMINI_API_KEY="your-key"
-$env:JWT_SECRET_KEY="replace-with-a-long-random-value"
-docker compose up --build
+Set-Location .\backend
+.\venv\Scripts\python.exe .\scripts\check_schema.py
 ```
 
-Frontend: `http://localhost:5173`  
-Backend docs: `http://localhost:8000/docs`
+Do not stamp when the checker reports missing tables or columns. Create and review a data-preserving Alembic upgrade instead. If it reports a complete match, an operator may, after reviewing the backup, run `python -m alembic stamp 20260806_0001` followed by `python -m alembic upgrade head`. Stamping the baseline instead of the head ensures later data-preserving constraints are still applied. Stamping is never automatic.
 
-## Production checklist
+Development fixtures are explicit only:
 
-- Never upload `backend/.env` or `frontend/.env`.
-- Use a new, long `JWT_SECRET_KEY`.
-- Rotate any Gemini key that was previously committed or shared publicly.
-- Use persistent object storage for uploads; container-local files can disappear during redeployment.
-- Configure a real email provider before relying on password-reset emails.
-- Keep `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` only in backend secret storage; never use a `VITE_` variable.
-- Require HTTPS for frontend, backend, return URL, cancel URL, and the Stripe webhook.
-- Restrict production CORS to the final frontend domain and rotate any exposed credentials.
-- Monitor failed signatures, amount mismatches, chargebacks, and duplicate callback volume.
-- Back up MySQL before migrations and before every production deployment.
-- Install a Tamil/Sinhala-capable TrueType font and configure `PDF_UNICODE_FONT_PATH` for multilingual flashcard PDFs.
-- Keep generated flashcard images in persistent object storage when the hosting filesystem is ephemeral.
+```powershell
+Get-Content .\database\seed_data.sql | mysql.exe -h localhost -u root -p learnfy_ai
+```
+
+Never install those demonstration accounts in production.
+
+## Staging sequence
+
+1. Configure production-like MySQL, Redis, private S3-compatible storage, SMTP, Gemini, and PayHere Sandbox; leave legacy Stripe disabled unless a rollback exercise specifically needs it.
+2. Back up the database and object storage; run `alembic upgrade head` as a one-off release job.
+3. Start the API and verify `/health/live` and `/health/ready`.
+4. Run authentication, upload, moderation, quota, localization, responsive, and signed PayHere-notification tests.
+5. Review legal placeholders, logs, alerts, retention rules, and rollback steps before promoting the same artifact.
+
+PayHere is the primary Sri Lankan payment provider and grants one-time 30-day or 365-day Premium access; it does not automatically renew. Keep `PAYHERE_ENABLED=false` until an approved PayHere Business account, domain-specific Merchant Secret, and public HTTPS callback URL are configured. Legacy Stripe code remains isolated for rollback. Learnfy AI does not store card details.
+
+## PayHere Sandbox setup
+
+1. Create a PayHere Sandbox merchant account and obtain the Sandbox Merchant ID and the Merchant Secret approved for your tunnel/domain.
+2. Set `PAYMENT_PROVIDER=payhere`, `PAYHERE_ENABLED=true`, `PAYHERE_SANDBOX=true`, the merchant credentials, and LKR plan amounts in `backend/.env`.
+3. PayHere cannot notify localhost. Start a secure HTTPS tunnel, for example `ngrok http 8000` or `cloudflared tunnel --url http://localhost:8000`, and set `BACKEND_PUBLIC_URL` to the generated HTTPS origin.
+4. The application supplies these URLs; never accept them from a browser:
+   - return: `FRONTEND_URL/payments/result?order_id=...`
+   - cancel: `FRONTEND_URL/payments/result?order_id=...&cancelled=1`
+   - notification: `BACKEND_PUBLIC_URL/payments/payhere/notify`
+5. Complete a Sandbox payment and verify the transaction becomes successful only after the signed server notification. A browser return alone must remain pending.
+
+For production, obtain PayHere Business approval and a Merchant Secret for the exact production domain, set `PAYHERE_SANDBOX=false`, use HTTPS frontend/backend origins, verify backups and webhook logs in staging, and only then enable PayHere. Never reuse Sandbox or placeholder credentials.
+
+## Backup and restore templates
+
+```powershell
+mysqldump.exe --single-transaction --routines --triggers -h DB_HOST -u DB_USER -p DB_NAME > learnfy-backup.sql
+mysql.exe -h RESTORE_HOST -u RESTORE_USER -p RESTORE_DATABASE < learnfy-backup.sql
+```
+
+Restore into a separate database first, verify record counts and application behavior, and only then plan a controlled cutover. Back up the S3 bucket separately with the storage provider's versioned tooling.
+
+## External services
+
+- Redis is mandatory in production; memory rate limiting is development/test only.
+- S3-compatible private storage is mandatory in production. Verification documents must never be placed under `/uploads`.
+- Configure ClamAV and set `ANTIVIRUS_REQUIRED=true` when the production policy requires uploads to fail closed.
+- PayHere notification endpoint: `/payments/payhere/notify`; it must be publicly reachable over HTTPS.
+- Gemini, PayHere, and legacy Stripe calls must be mocked in CI. Validate real Sandbox flows only in staging.

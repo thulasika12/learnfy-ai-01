@@ -31,7 +31,9 @@ PLANS = {
 
 
 def validate_checkout_configuration() -> None:
-    if not settings.STRIPE_SECRET_KEY:
+    if not settings.PAYMENTS_ENABLED:
+        raise HTTPException(status_code=503, detail="Payments are currently unavailable")
+    if settings.PAYMENT_PROVIDER != "stripe" or not settings.STRIPE_SECRET_KEY:
         raise HTTPException(
             status_code=503,
             detail="Stripe checkout is not configured: set STRIPE_SECRET_KEY in backend/.env",
@@ -39,7 +41,7 @@ def validate_checkout_configuration() -> None:
 
 
 def validate_webhook_configuration() -> None:
-    if not settings.STRIPE_WEBHOOK_SECRET:
+    if not settings.PAYMENTS_ENABLED or settings.PAYMENT_PROVIDER != "stripe" or not settings.STRIPE_WEBHOOK_SECRET:
         raise HTTPException(
             status_code=503,
             detail="Stripe webhooks are not configured: set STRIPE_WEBHOOK_SECRET in backend/.env",
@@ -52,3 +54,10 @@ def amount_in_smallest_unit(amount: Decimal) -> int:
 
 def configure_stripe() -> None:
     stripe.api_key = settings.STRIPE_SECRET_KEY
+
+def price_id_for(plan_code: str) -> str:
+    price_id = {"monthly": settings.STRIPE_MONTHLY_PRICE_ID,
+                "yearly": settings.STRIPE_YEARLY_PRICE_ID}.get(plan_code, "")
+    if not price_id:
+        raise HTTPException(status_code=503, detail="Payments are currently unavailable")
+    return price_id

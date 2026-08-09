@@ -4,7 +4,10 @@ Learnfy AI — FastAPI application entrypoint.
 Run locally with:
     uvicorn app.main:app --reload
 """
+import json
+import logging
 import os
+import time
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -13,12 +16,17 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from sqlalchemy import text
 from app.config.settings import settings
+from app.config.database import engine
 
 # Import all models so SQLAlchemy is aware of them before create_all() runs
-from app.models import user, note, group, chat, quiz, resource, auth_token, payment, flashcard, notification, subject, academic, teacher_verification, email_verification, student_verification, admin_audit, content_report  # noqa: F401
+from app.models import user, note, group, chat, quiz, resource, auth_token, payment, flashcard, notification, subject, academic, teacher_verification, email_verification, student_verification, admin_audit, content_report, entitlement  # noqa: F401
 
-from app.routes import auth, users, notes, comments, groups, ai, chat as chat_routes, resources, admin, payments, flashcards, notifications, subjects, dashboard, academic, teacher_verifications, student_verifications, reports
+from app.routes import auth, users, notes, comments, groups, ai, chat as chat_routes, resources, admin, payments, flashcards, notifications, subjects, dashboard, academic, teacher_verifications, student_verifications, reports, entitlements
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger("learnfy")
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -44,6 +52,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def structured_request_log(request: Request, call_next):
+    started = time.perf_counter()
+    response = await call_next(request)
+    logger.info(json.dumps({"event":"http_request", "method":request.method,
+        "path":request.url.path, "status":response.status_code,
+        "duration_ms":round((time.perf_counter()-started)*1000, 2)}))
+    return response
 
 # ---------------------------------------------------------------------------
 # Static files — serve uploaded notes / profile images
@@ -103,6 +120,7 @@ app.include_router(academic.router)
 app.include_router(teacher_verifications.router)
 app.include_router(student_verifications.router)
 app.include_router(reports.router)
+app.include_router(entitlements.router)
 
 
 @app.get("/", tags=["Health"])
@@ -113,3 +131,16 @@ def root():
 @app.get("/health", tags=["Health"])
 def health_check():
     return {"status": "ok"}
+
+@app.get("/health/live", tags=["Health"])
+def health_live():
+    return {"status": "ok"}
+
+@app.get("/health/ready", tags=["Health"])
+def health_ready():
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "ready"}
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unavailable"})

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiCheck, FiShield } from "react-icons/fi";
 
-import { getPaymentPlans } from "../../services/api";
+import { getPaymentConfiguration, getPaymentPlans } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
 import { usePreferences } from "../../hooks/usePreferences";
 import Loader from "../../components/Loader";
@@ -10,12 +10,15 @@ import Loader from "../../components/Loader";
 export default function Pricing() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const { isAuthenticated } = useAuth();
   const { t } = usePreferences();
   const navigate = useNavigate();
 
   useEffect(() => {
-    getPaymentPlans().then((res) => setPlans(res.data)).finally(() => setLoading(false));
+    Promise.all([getPaymentPlans(), getPaymentConfiguration()]).then(([plansResponse, configResponse]) => {
+      setPlans(plansResponse.data); setPaymentsEnabled(configResponse.data.enabled);
+    }).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <Loader />;
@@ -43,8 +46,8 @@ export default function Pricing() {
             <ul className="mt-7 min-h-32 space-y-3">
               {plan.features.map((feature) => <li key={feature} className="flex gap-3 text-sm text-slate-600 dark:text-slate-300"><FiCheck className="mt-0.5 shrink-0 text-emerald-500" />{feature}</li>)}
             </ul>
-            <button onClick={() => choosePlan(plan)} className={`mt-7 w-full ${plan.code === "free" ? "btn-secondary" : "btn-primary"}`}>
-              {plan.code === "free" ? t("payments.startFree") : t("payments.choosePlan")}
+            <button disabled={plan.code !== "free" && !paymentsEnabled} onClick={() => choosePlan(plan)} className={`mt-7 w-full disabled:cursor-not-allowed disabled:opacity-50 ${plan.code === "free" ? "btn-secondary" : "btn-primary"}`}>
+              {plan.code === "free" ? t("payments.startFree") : paymentsEnabled ? t("payments.choosePlan") : "Payments are currently unavailable"}
             </button>
           </section>
         ))}

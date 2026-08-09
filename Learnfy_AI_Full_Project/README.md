@@ -73,8 +73,8 @@ Use Python 3.12 for this project.
 From the project root:
 
 ```powershell
-Get-Content .\database\schema.sql | & "C:\Program Files\MySQL\MySQL Server 9.7\bin\mysql.exe" -u root -p
-Get-Content .\database\seed_data.sql | & "C:\Program Files\MySQL\MySQL Server 9.7\bin\mysql.exe" -u root -p
+Set-Location .\backend
+.\venv\Scripts\python.exe -m alembic upgrade head
 ```
 
 Apply every versioned migration after the base schema, then optionally install development seed data:
@@ -86,6 +86,10 @@ Get-Content .\database\seed_data.sql | & $mysql -u root -p learnfy_ai
 ```
 
 `seed_data.sql` is for local development only. Do not install its demonstration accounts in production.
+
+### PayHere Premium access
+
+PayHere Checkout is the primary provider for one-time LKR 500 / 30-day and LKR 5,000 / 365-day Premium access. It does not automatically renew. Copy `backend/.env.example`, keep `PAYHERE_ENABLED=false` until credentials are ready, and follow `DEPLOYMENT.md` for Sandbox, HTTPS tunnel, signed notification, and production approval steps. The merchant secret is backend-only and must never use a `VITE_` variable.
 
 For an existing database, back it up and apply the migrations in filename order:
 
@@ -147,7 +151,7 @@ npm run build
 npm run test:e2e
 ```
 
-The Playwright suite uses installed Microsoft Edge and verifies the Flashcards workspace at desktop, tablet, and mobile viewports in light and dark themes.
+The Playwright suite uses Playwright's bundled Chromium and verifies the application at desktop, tablet, and mobile viewports in light and dark themes.
 
 ## Environment variables
 
