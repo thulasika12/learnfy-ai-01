@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useCallback } from "react";
-import { loginUser, registerUser, getProfile, logoutUser } from "../services/api";
+import { loginUser, registerUser, getProfile, logoutUser, completeOnboarding, verifyEmail } from "../services/api";
 
 export const AuthContext = createContext(null);
 
@@ -73,9 +73,23 @@ export function AuthProvider({ children }) {
     return res.data;
   }, [updateUserCache]);
 
+  const finishOnboarding = useCallback(async (payload) => {
+    const res = await completeOnboarding(payload);
+    localStorage.setItem("learnfy_token", res.data.access_token);
+    localStorage.setItem("learnfy_refresh_token", res.data.refresh_token);
+    updateUserCache(res.data.user);
+    return res.data.user;
+  }, [updateUserCache]);
+
+  const confirmEmail = useCallback(async (code) => {
+    const res = await verifyEmail({ code });
+    localStorage.setItem("learnfy_token", res.data.access_token); localStorage.setItem("learnfy_refresh_token", res.data.refresh_token); updateUserCache(res.data.user);
+    return res.data.user;
+  }, [updateUserCache]);
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, updateUserCache, refreshUser, isAuthenticated: !!user }}
+      value={{ user, loading, login, register, logout, updateUserCache, refreshUser, finishOnboarding, confirmEmail, isAuthenticated: !!user }}
     >
       {children}
     </AuthContext.Provider>

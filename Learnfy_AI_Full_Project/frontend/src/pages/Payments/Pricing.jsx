@@ -2,23 +2,30 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiCheck, FiShield } from "react-icons/fi";
 
-import { getPaymentConfiguration, getPaymentPlans } from "../../services/api";
+import { getPaymentConfiguration, getPaymentPlans, normalizePaymentPlans, paymentAvailability } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
 import { usePreferences } from "../../hooks/usePreferences";
 import Loader from "../../components/Loader";
+
+const PREMIUM_PLAN_CODES = new Set(["premium_30_days", "premium_365_days"]);
 
 export default function Pricing() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  const [configuration, setConfiguration] = useState(null);
   const { isAuthenticated } = useAuth();
   const { t } = usePreferences();
   const navigate = useNavigate();
 
   useEffect(() => {
     Promise.all([getPaymentPlans(), getPaymentConfiguration()]).then(([plansResponse, configResponse]) => {
-      setPlans(plansResponse.data); setPaymentsEnabled(configResponse.data.enabled);
-    }).finally(() => setLoading(false));
+      const planData = plansResponse.data;
+      const configData = Array.isArray(planData) ? configResponse.data : { ...configResponse.data, ...planData };
+      setPlans(normalizePaymentPlans(planData));
+      setConfiguration(configData);
+      setPaymentsEnabled(paymentAvailability(configData));
+    }).catch(() => setPaymentsEnabled(false)).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <Loader />;
@@ -46,13 +53,14 @@ export default function Pricing() {
             <ul className="mt-7 min-h-32 space-y-3">
               {plan.features.map((feature) => <li key={feature} className="flex gap-3 text-sm text-slate-600 dark:text-slate-300"><FiCheck className="mt-0.5 shrink-0 text-emerald-500" />{feature}</li>)}
             </ul>
-            <button disabled={plan.code !== "free" && !paymentsEnabled} onClick={() => choosePlan(plan)} className={`mt-7 w-full disabled:cursor-not-allowed disabled:opacity-50 ${plan.code === "free" ? "btn-secondary" : "btn-primary"}`}>
+            <button disabled={plan.code !== "free" && (!paymentsEnabled || !PREMIUM_PLAN_CODES.has(plan.code) || !isAuthenticated)} onClick={() => choosePlan(plan)} className={`mt-7 w-full disabled:cursor-not-allowed disabled:opacity-50 ${plan.code === "free" ? "btn-secondary" : "btn-primary"}`}>
               {plan.code === "free" ? t("payments.startFree") : paymentsEnabled ? t("payments.choosePlan") : "Payments are currently unavailable"}
             </button>
           </section>
         ))}
       </div>
       <p className="mt-8 flex items-center justify-center gap-2 text-center text-sm text-slate-500 dark:text-slate-400"><FiShield /> {t("payments.secureNotice")}</p>
+      {configuration?.sandbox && !configuration?.publicCallbackReady && <p className="mt-3 text-center text-sm text-amber-700 dark:text-amber-300">Development warning: PayHere Sandbox checkout works locally, but Premium activation requires a deployed public HTTPS backend or HTTPS tunnel for the verified notification callback.</p>}
     </div>
   );
 }

@@ -16,7 +16,10 @@ class PlanOut(BaseModel):
 
 
 class CheckoutRequest(BaseModel):
-    plan_code: Literal["monthly", "yearly"]
+    plan_code: Literal["monthly", "yearly", "premium_30_days", "premium_365_days"]
+    phone: str | None = Field(default=None, min_length=7, max_length=30)
+    address: str | None = Field(default=None, min_length=3, max_length=255)
+    city: str | None = Field(default=None, min_length=2, max_length=100)
 
 class PayHereOrderRequest(BaseModel):
     plan_code: Literal["premium_30_days", "premium_365_days"]
@@ -35,6 +38,7 @@ class CheckoutResponse(BaseModel):
     order_id: str
     provider: str
     checkout_url: str
+    fields: dict[str, str] | None = None
 
 
 class PaymentOut(BaseModel):

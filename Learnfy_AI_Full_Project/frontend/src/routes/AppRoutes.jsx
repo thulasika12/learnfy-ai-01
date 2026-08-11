@@ -24,6 +24,8 @@ import Settings from "../pages/Student/Settings";
 import Notifications from "../pages/Student/Notifications";
 
 const TeacherDashboard = lazy(() => import("../pages/Teacher/Dashboard"));
+const Onboarding = lazy(() => import("../pages/Auth/Onboarding"));
+const VerifyEmail = lazy(() => import("../pages/Auth/VerifyEmail"));
 const TeacherVerification = lazy(() => import("../pages/Teacher/Verification"));
 const AdminDashboard = lazy(() => import("../pages/Admin/AdminDashboard"));
 const SubjectManagement = lazy(() => import("../pages/Admin/SubjectManagement"));
@@ -93,6 +95,8 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       >
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/progress" element={<ProgressPage />} />
         <Route path="/profile" element={<Profile />} />

@@ -79,6 +79,8 @@ export const loginUser = (data) => api.post("/auth/login", data);
 export const forgotPassword = (data) => api.post("/auth/forgot-password", data);
 export const resetPassword = (data) => api.post("/auth/reset-password", data);
 export const refreshToken = (data) => api.post("/auth/refresh", data);
+export const requestEmailVerification = () => api.post("/auth/email-verification/request");
+export const verifyEmail = (data) => api.post("/auth/email-verification/verify", data);
 export const logoutUser = (data) => api.post("/auth/logout", data);
 export const changePassword = (data) => api.post("/auth/change-password", data);
 
@@ -86,6 +88,8 @@ export const changePassword = (data) => api.post("/auth/change-password", data);
 // Payments
 // ---------------------------------------------------------------------------
 export const getPaymentPlans = () => api.get("/payments/plans");
+export const normalizePaymentPlans = (data) => Array.isArray(data) ? data : (Array.isArray(data?.plans) ? data.plans : []);
+export const paymentAvailability = (data) => Boolean(data?.enabled ?? data?.configured ?? data?.gatewayReady);
 export const getPaymentConfiguration = () => api.get("/payments/config");
 export const createPaymentCheckout = (data) => api.post("/payments/checkout", data);
 export const createPayHereOrder = (data) => api.post("/payments/payhere/create-order", data);
@@ -98,6 +102,7 @@ export const getAdminTransactions = () => api.get("/payments/admin/transactions"
 // Users
 // ---------------------------------------------------------------------------
 export const getProfile = () => api.get("/users/profile");
+export const completeOnboarding = (data) => api.put("/users/onboarding", data);
 export const getDashboardStats = () => api.get("/dashboard/stats");
 export const DASHBOARD_STATS_EVENT = "learnfy:dashboard-stats-changed";
 const refreshDashboardStats = () => window.dispatchEvent(new Event(DASHBOARD_STATS_EVENT));

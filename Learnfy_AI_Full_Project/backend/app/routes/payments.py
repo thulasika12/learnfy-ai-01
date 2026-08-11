@@ -71,8 +71,15 @@ def list_plans():
 def payment_configuration():
     if settings.PAYMENT_PROVIDER == "payhere":
         configured, message = payhere_configuration()
-        return {"enabled":configured, "provider":"payhere" if configured else None,
-                "sandbox":settings.PAYHERE_SANDBOX, "message":message}
+        credentials_configured = bool(
+            settings.PAYHERE_MERCHANT_ID and settings.PAYHERE_MERCHANT_SECRET
+        )
+        public_callback_ready = settings.BACKEND_PUBLIC_URL.lower().startswith("https://")
+        return {"enabled":configured, "configured":credentials_configured,
+                "gatewayReady":configured, "provider":"payhere" if configured else None,
+                "gateway":"PayHere", "mode":"sandbox" if settings.PAYHERE_SANDBOX else "production",
+                "sandbox":settings.PAYHERE_SANDBOX, "publicCallbackReady":public_callback_ready,
+                "message":message}
     configured = bool(settings.PAYMENTS_ENABLED and settings.PAYMENT_PROVIDER == "stripe" and
                       settings.STRIPE_SECRET_KEY and settings.STRIPE_MONTHLY_PRICE_ID and settings.STRIPE_YEARLY_PRICE_ID)
     return {"enabled": configured, "provider": settings.PAYMENT_PROVIDER if configured else None,
@@ -168,7 +175,20 @@ async def payhere_notify(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/checkout", response_model=CheckoutResponse, status_code=status.HTTP_201_CREATED)
-def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def create_checkout(payload: CheckoutRequest, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not settings.PAYMENTS_ENABLED and payload.plan_code in PLANS:
+        raise HTTPException(status_code=503, detail="Payments are currently unavailable")
+    if settings.PAYMENT_PROVIDER == "payhere":
+        if payload.plan_code not in payhere_plans():
+            raise HTTPException(status_code=422, detail="Invalid PayHere plan")
+        missing = [name for name in ("phone", "address", "city") if not getattr(payload, name)]
+        if missing:
+            raise HTTPException(status_code=422, detail=f"Missing billing details: {', '.join(missing)}")
+        payhere_payload = PayHereOrderRequest(
+            plan_code=payload.plan_code, phone=payload.phone,
+            address=payload.address, city=payload.city,
+        )
+        return create_payhere_order(payhere_payload, request, db, current_user)
     profile = current_user.academic_profile
     if profile and profile.grade and profile.grade.grade_number and profile.grade.grade_number <= 13 and not profile.guardian_consent:
         raise HTTPException(status_code=403, detail="Parent or guardian confirmation is required for school-student payments")

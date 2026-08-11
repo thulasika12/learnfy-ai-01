@@ -6,12 +6,13 @@ import { aiStudyPlan } from "../../services/api";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Loader from "../../components/Loader";
-import AcademicContextFields, { emptyAcademicContext } from "../../components/subjects/AcademicContextFields";
+import AcademicContextFields from "../../components/subjects/AcademicContextFields";
+import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
 import { usePreferences } from "../../hooks/usePreferences";
 
 export default function StudyPlanner() {
   const [subjects, setSubjects] = useState([]);
-  const [academic, setAcademic] = useState(emptyAcademicContext);
+  const [academic, setAcademic] = useAcademicDefaults();
   const [subjectInput, setSubjectInput] = useState("");
   const [hoursPerDay, setHoursPerDay] = useState(2);
   const [days, setDays] = useState(7);

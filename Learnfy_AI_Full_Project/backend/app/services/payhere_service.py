@@ -58,13 +58,15 @@ def configuration() -> tuple[bool, str]:
     if not all(credentials) or any(value.lower().startswith(("your_", "change", "replace", "example")) for value in credentials):
         return False, "PayHere merchant credentials are not configured"
     public = urlparse(settings.BACKEND_PUBLIC_URL)
-    if public.scheme != "https" or not public.netloc:
-        return False, "PayHere requires a public HTTPS backend URL for notifications"
+    if (public.scheme != "https" or not public.netloc) and not settings.PAYHERE_SANDBOX:
+        return False, "PayHere Production requires a public HTTPS backend URL for notifications"
     if settings.PAYHERE_CURRENCY.upper() != "LKR":
         return False, "PayHere currency must be LKR"
     frontend = urlparse(settings.FRONTEND_URL)
     if not settings.PAYHERE_SANDBOX and (frontend.scheme != "https" or not frontend.netloc):
         return False, "PayHere Production requires an HTTPS frontend URL"
+    if settings.PAYHERE_SANDBOX and (public.scheme != "https" or not public.netloc):
+        return True, "Sandbox checkout is available, but Premium activation requires a public HTTPS notification URL"
     return True, "PayHere Sandbox is configured" if settings.PAYHERE_SANDBOX else "PayHere Production is configured"
 
 def require_configuration() -> None:

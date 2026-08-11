@@ -13,7 +13,8 @@ import { usePreferences } from "../../hooks/usePreferences";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
 import Loader from "../../components/Loader";
-import AcademicContextFields, { emptyAcademicContext } from "../../components/subjects/AcademicContextFields";
+import AcademicContextFields from "../../components/subjects/AcademicContextFields";
+import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
 
 export default function QuizGenerator() {
   const { language, t } = usePreferences();
@@ -24,7 +25,7 @@ export default function QuizGenerator() {
     difficulty: "medium",
     language,
   });
-  const [academic, setAcademic] = useState(emptyAcademicContext);
+  const [academic, setAcademic] = useAcademicDefaults();
   const [quiz, setQuiz] = useState(null);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);

@@ -10,7 +10,9 @@ FEATURES = ("ai_chat", "summary", "quiz", "flashcards", "study_planner")
 
 def is_premium(db: Session, user_id: int) -> bool:
     now = datetime.now(timezone.utc)
-    return db.query(Subscription).filter(Subscription.user_id == user_id,
+    # Select only the identifier needed for this existence check so entitlement
+    # does not load optional payment-provider metadata columns.
+    return db.query(Subscription.id).filter(Subscription.user_id == user_id,
         Subscription.status.in_(("active", "trialing")), Subscription.current_period_end > now).first() is not None
 
 def limit_for(feature: str, premium: bool) -> int:

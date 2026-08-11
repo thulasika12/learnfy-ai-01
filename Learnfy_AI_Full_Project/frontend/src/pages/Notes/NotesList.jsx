@@ -6,11 +6,12 @@ import useFetch from "../../hooks/useFetch";
 import { getNotes, toggleLike, toggleBookmark } from "../../services/api";
 import NoteCard from "../../components/NoteCard";
 import Loader from "../../components/Loader";
-import AcademicContextFields, { emptyAcademicContext } from "../../components/subjects/AcademicContextFields";
+import AcademicContextFields from "../../components/subjects/AcademicContextFields";
+import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
 
 export default function NotesList() {
   const [search, setSearch] = useState("");
-  const [academic, setAcademic] = useState(emptyAcademicContext);
+  const [academic, setAcademic] = useAcademicDefaults();
 
   const { data: notes, loading, error, setData } = useFetch(
     () => getNotes({ search: search || undefined, subject: academic.subject || undefined, grade: academic.grade || undefined, medium: academic.medium || undefined }),

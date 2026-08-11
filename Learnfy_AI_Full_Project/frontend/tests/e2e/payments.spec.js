@@ -31,8 +31,8 @@ async function authenticatedPage(page) {
 test("PayHere checkout uses the selected server plan and a POST form", async ({ page }) => {
   await authenticatedPage(page);
   let createBody;
-  await page.route("**/payments/plans*", route => route.fulfill({ json:paidPlans }));
-  await page.route("**/payments/payhere/create-order*", async route => {
+  await page.route("**/payments/plans*", route => route.fulfill({ json:{ gateway:"PayHere", mode:"sandbox", configured:true, plans:paidPlans } }));
+  await page.route("http://localhost:8000/payments/checkout", async route => {
     createBody = route.request().postDataJSON();
     await new Promise(resolve => setTimeout(resolve, 200));
     return route.fulfill({ json:{ order_id:"LFY-PH-TEST", provider:"payhere",

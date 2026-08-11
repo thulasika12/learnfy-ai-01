@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 
 import Button from "../../components/Button";
 import Loader from "../../components/Loader";
-import { createPayHereOrder, getPaymentPlans } from "../../services/api";
+import { createPaymentCheckout, getPaymentPlans, normalizePaymentPlans } from "../../services/api";
 import { usePreferences } from "../../hooks/usePreferences";
 
 export default function Checkout() {
@@ -20,7 +20,7 @@ export default function Checkout() {
 
   useEffect(() => {
     getPaymentPlans().then((res) => {
-      const selected = res.data.find((item) => item.code === planCode && item.code !== "free");
+      const selected = normalizePaymentPlans(res.data).find((item) => item.code === planCode && item.code !== "free");
       if (!selected) navigate("/pricing", { replace: true });
       setPlan(selected);
     }).catch(() => toast.error(t("payments.loadError"))).finally(() => setLoading(false));
@@ -28,9 +28,10 @@ export default function Checkout() {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (submitting || !plan) return;
     setSubmitting(true);
     try {
-      const response = await createPayHereOrder({ plan_code: plan.code, ...billing });
+      const response = await createPaymentCheckout({ plan_code: plan.code, ...billing });
       const form = document.createElement("form");
       form.method = "POST"; form.action = response.data.checkout_url;
       Object.entries(response.data.fields).forEach(([name, value]) => {

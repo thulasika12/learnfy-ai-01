@@ -1,7 +1,7 @@
 from datetime import datetime,timezone,timedelta
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from app.config.database import Base,get_db
@@ -11,6 +11,18 @@ from app.models.auth_token import AuthToken
 from app.models.user import User,UserRole
 from app.routes import admin
 from app.services.auth_service import build_access_token
+
+
+def test_statistics_subscription_count_does_not_select_optional_metadata():
+    engine=create_engine("sqlite://",connect_args={"check_same_thread":False},poolclass=StaticPool);Base.metadata.create_all(engine);Session=sessionmaker(bind=engine);db=Session()
+    statements=[]
+    event.listen(engine,"before_cursor_execute",lambda connection,cursor,statement,parameters,context,executemany: statements.append(statement))
+    admin.get_statistics(db,object())
+    subscription_queries=[statement for statement in statements if "subscriptions" in statement.lower()]
+    assert len(subscription_queries)==1
+    assert "stripe_customer_id" not in subscription_queries[0]
+    assert "stripe_subscription_id" not in subscription_queries[0]
+    db.close()
 
 def test_admin_user_deactivation_restore_and_protections():
     engine=create_engine("sqlite://",connect_args={"check_same_thread":False},poolclass=StaticPool);Base.metadata.create_all(engine);Session=sessionmaker(bind=engine);db=Session()

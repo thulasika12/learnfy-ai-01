@@ -59,6 +59,24 @@ def create_order(client, plan="premium_30_days", **extra):
     assert response.status_code == 201, response.text
     return response.json()
 
+def test_sandbox_localhost_configuration_and_shared_checkout(monkeypatch):
+    configure(monkeypatch)
+    monkeypatch.setattr(settings, "BACKEND_PUBLIC_URL", "http://localhost:8000")
+    client, db, *_ = fixture(monkeypatch)
+    monkeypatch.setattr(settings, "BACKEND_PUBLIC_URL", "http://localhost:8000")
+    try:
+        config = client.get("/payments/config")
+        assert config.status_code == 200
+        assert config.json()["configured"] is True
+        assert config.json()["gatewayReady"] is True
+        assert config.json()["publicCallbackReady"] is False
+        response = client.post("/payments/checkout", json=order_payload())
+        assert response.status_code == 201, response.text
+        assert response.json()["checkout_url"] == "https://sandbox.payhere.lk/pay/checkout"
+        assert response.json()["fields"]["notify_url"] == "http://localhost:8000/payments/payhere/notify"
+    finally:
+        db.close()
+
 def test_order_requires_login(monkeypatch):
     client, db, *_ = fixture(monkeypatch, authenticated=False)
     try: assert client.post("/payments/payhere/create-order", json=order_payload()).status_code == 401

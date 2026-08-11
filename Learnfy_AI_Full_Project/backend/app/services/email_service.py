@@ -43,3 +43,11 @@ def send_password_reset_email(to_email: str, reset_token: str):
         "If you did not request this, you can ignore this email.",
     )
 
+
+def send_email_verification_code(to_email: str, code: str):
+    return _send_email(
+        to_email,
+        "Verify your Learnfy AI email",
+        f"Your Learnfy AI verification code is {code}. It expires in 15 minutes.\n\n"
+        "If you did not create this account, you can ignore this email.",
+    )

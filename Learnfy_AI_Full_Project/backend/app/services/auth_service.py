@@ -14,7 +14,7 @@ def register_user(db: Session, payload: UserRegister) -> User:
     email = str(payload.email).lower()
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail="Email is already registered")
-    user = User(name=payload.name, email=email, password=hash_password(payload.password), role="student")
+    user = User(name=payload.name, email=email, password=hash_password(payload.password), role="student", is_email_verified=False, onboarding_completed=False)
     db.add(user)
     db.flush()
     db.commit(); db.refresh(user)

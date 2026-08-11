@@ -31,13 +31,14 @@ import Button from "../../components/Button";
 import Modal from "../../components/Modal";
 import Loader from "../../components/Loader";
 import AcademicContextFields, { emptyAcademicContext } from "../../components/subjects/AcademicContextFields";
+import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
 
 export default function StudyGroups() {
   const { t } = usePreferences();
   const { data: groups, loading, refetch } = useFetch(() => getGroups(), []);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: "", description: "" });
-  const [academic, setAcademic] = useState(emptyAcademicContext);
+  const [academic, setAcademic] = useAcademicDefaults();
   const [creating, setCreating] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(null);
 

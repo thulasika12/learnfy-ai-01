@@ -38,7 +38,11 @@ export default function Login() {
       };
       const queryNext = new URLSearchParams(location.search).get("next");
       const safeNext = queryNext?.startsWith("/") && !queryNext.startsWith("//") ? queryNext : null;
-      const redirectTo = loggedInUser.role === "admin"
+      const redirectTo = loggedInUser.role !== "admin" && !loggedInUser.is_email_verified
+        ? "/verify-email"
+        : loggedInUser.role !== "admin" && !loggedInUser.onboarding_completed
+        ? "/onboarding"
+        : loggedInUser.role === "admin"
         ? "/admin/dashboard"
         : safeNext || location.state?.from?.pathname || dashboardByRole[loggedInUser.role] || "/dashboard";
       navigate(redirectTo, { replace: true });

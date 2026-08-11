@@ -47,7 +47,7 @@ def save_private_proof(upload: UploadFile) -> tuple[str,str]:
 def submit_verification(full_name:str=Form(...,min_length=2,max_length=150),qualification:str=Form(...,min_length=2,max_length=255),institution_name:str=Form(...,min_length=2,max_length=255),subjects_taught:str=Form(...),years_of_experience:int=Form(...,ge=0,le=70),grades_taught:str=Form("General"),official_email:str|None=Form(None),additional_information:str|None=Form(None,max_length=2000),proof:UploadFile=File(...),db:Session=Depends(get_db),user:User=Depends(get_current_user)):
     if db.query(TeacherVerification).filter(TeacherVerification.user_id==user.id,TeacherVerification.status==VerificationStatus.pending).first(): raise HTTPException(409,"A pending teacher verification already exists")
     if db.query(TeacherVerification).filter(TeacherVerification.user_id==user.id,TeacherVerification.status==VerificationStatus.approved).first(): raise HTTPException(409,"Teacher account is already approved")
-    if user.role != UserRole.student: raise HTTPException(403,"Only active student accounts can apply to become teachers")
+    if user.role not in (UserRole.student, UserRole.teacher) or user.is_verified_teacher: raise HTTPException(403,"Only unverified teacher applicants can submit verification")
     if official_email:
         try: official_email=str(TypeAdapter(EmailStr).validate_python(official_email))
         except ValidationError: raise HTTPException(400,"Invalid official email")
@@ -105,5 +105,5 @@ def approve(verification_id:int,db:Session=Depends(get_db),admin:User=Depends(re
 
 @router.post("/admin/teacher-verifications/{verification_id}/reject",response_model=TeacherVerificationOut)
 def reject(verification_id:int,payload:RejectionRequest,db:Session=Depends(get_db),admin:User=Depends(require_admin)):
-    item=pending_item(db,verification_id); applicant=db.query(User).filter(User.id==item.user_id).with_for_update().first();item.status=VerificationStatus.rejected;item.rejection_reason=payload.reason.strip();item.reviewed_by=admin.id;item.reviewed_at=datetime.now(timezone.utc);applicant.role=UserRole.student;applicant.is_verified_teacher=False
+    item=pending_item(db,verification_id); applicant=db.query(User).filter(User.id==item.user_id).with_for_update().first();item.status=VerificationStatus.rejected;item.rejection_reason=payload.reason.strip();item.reviewed_by=admin.id;item.reviewed_at=datetime.now(timezone.utc);applicant.is_verified_teacher=False
     db.add(Notification(user_id=applicant.id,type="teacher_verification",title="Teacher verification needs attention",message="Your teacher application was not approved. Review the reason and resubmit.",link="/teacher-verification"));add_admin_audit(db,admin.id,"teacher_verification.reject","teacher_verification",item.id,payload.reason.strip());db.commit();db.refresh(item);return serialize(item)

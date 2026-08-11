@@ -11,7 +11,7 @@ class Payment(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     order_id = Column(String(64), nullable=False, unique=True, index=True)
-    provider = Column(String(30), nullable=False, default="stripe")
+    provider = Column(String(30), nullable=False, default="payhere", server_default="payhere")
     provider_payment_id = Column(String(100), nullable=True, unique=True, index=True)
     plan_code = Column(String(30), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)

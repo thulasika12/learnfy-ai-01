@@ -37,6 +37,7 @@ class User(Base):
     is_verified_teacher = Column(Boolean, default=False)
     # Compatibility default for trusted/admin-created records; public registration explicitly sets False.
     is_email_verified = Column(Boolean, nullable=False, default=True)
+    onboarding_completed = Column(Boolean, nullable=False, default=False, server_default="0")
     student_verification_status = Column(Enum(StudentVerificationStatus), nullable=False, default=StudentVerificationStatus.unverified)
     student_verified_at = Column(DateTime(timezone=True), nullable=True)
     student_verified_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

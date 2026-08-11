@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
     academic_subject VARCHAR(255) DEFAULT NULL,
     is_verified_teacher BOOLEAN DEFAULT FALSE,
     is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
     student_verification_status ENUM('unverified','pending','verified','rejected') NOT NULL DEFAULT 'unverified',
     student_verified_at DATETIME NULL,
     student_verified_by INT NULL,
@@ -251,13 +252,13 @@ CREATE TABLE IF NOT EXISTS resources (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------
--- Stripe payments and Premium subscriptions
+-- Payments and Premium subscriptions
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     order_id VARCHAR(64) NOT NULL UNIQUE,
-    provider VARCHAR(30) NOT NULL DEFAULT 'stripe',
+    provider VARCHAR(30) NOT NULL DEFAULT 'payhere',
     provider_payment_id VARCHAR(100),
     plan_code VARCHAR(30) NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
@@ -280,16 +281,34 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     status VARCHAR(30) NOT NULL DEFAULT 'active',
     current_period_start DATETIME NOT NULL,
     current_period_end DATETIME NOT NULL,
-    source_payment_id INT NOT NULL UNIQUE,
+    source_payment_id INT NULL UNIQUE,
+    stripe_customer_id VARCHAR(255) NULL,
+    stripe_subscription_id VARCHAR(255) NULL UNIQUE,
+    cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (source_payment_id) REFERENCES payments(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_payment_id) REFERENCES payments(id) ON DELETE SET NULL,
     INDEX idx_subscriptions_user (user_id),
     INDEX idx_subscriptions_status (status),
-    INDEX idx_subscriptions_period_end (current_period_end)
+    INDEX idx_subscriptions_period_end (current_period_end),
+    INDEX idx_subscriptions_stripe_customer (stripe_customer_id)
 ) ENGINE=InnoDB;
 
+-- ---------------------------------------------------------------
+-- Atomic daily AI usage quotas
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS daily_ai_usage (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    feature VARCHAR(30) NOT NULL,
+    usage_date DATE NOT NULL,
+    usage_count INT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_daily_ai_usage (user_id, feature, usage_date),
+    INDEX idx_daily_ai_usage_user_date (user_id, usage_date)
+) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS admin_audits (
     id INT AUTO_INCREMENT PRIMARY KEY,
     actor_id INT NULL,

@@ -4,7 +4,8 @@ import toast from "react-hot-toast";
 
 import Button from "../Button";
 import { generateFlashcards, generateFlashcardsFromFile, generateFlashcardsFromNote, generateFlashcardsFromText, getNotes } from "../../services/api";
-import AcademicContextFields, { emptyAcademicContext } from "../subjects/AcademicContextFields";
+import AcademicContextFields from "../subjects/AcademicContextFields";
+import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
 
 const sources = [{ id: "topic", label: "Topic", icon: FiLayers }, { id: "text", label: "Paste notes", icon: FiFileText }, { id: "note", label: "Saved note", icon: FiFile }, { id: "pdf", label: "PDF", icon: FiUploadCloud }, { id: "document", label: "Document", icon: FiUploadCloud }];
 
@@ -15,7 +16,7 @@ export default function FlashcardGeneratorForm({ initialNoteId, onGenerated }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ topic: "", title: "", text: "", note_id: initialNoteId || "", count: 10, difficulty: "medium", language: "en" });
-  const [academic, setAcademic] = useState(emptyAcademicContext);
+  const [academic, setAcademic] = useAcademicDefaults();
 
   useEffect(() => { if (source === "note" && !notes.length) getNotes({}).then((res) => setNotes(res.data)).catch(() => toast.error("Could not load notes")); }, [notes.length, source]);
 

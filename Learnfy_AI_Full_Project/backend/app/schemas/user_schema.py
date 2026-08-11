@@ -75,6 +75,7 @@ class UserOut(BaseModel):
     academic_subject: Optional[str] = None
     is_verified_teacher: bool = False
     is_email_verified: bool = False
+    onboarding_completed: bool = False
     student_verification_status: str = "unverified"
     student_verified_at: Optional[datetime] = None
     is_active: bool = True
@@ -158,8 +159,32 @@ class ChangePasswordRequest(BaseModel):
         return self
 
 
+class EmailVerificationRequest(BaseModel):
+    code: str = Field(pattern=r"^\d{6}$")
+
+
 class DeleteAccountRequest(BaseModel):
     password: str = Field(min_length=1, max_length=100)
 
 class AdminUserActionRequest(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
+
+
+class OnboardingRequest(BaseModel):
+    role: Literal["student", "teacher"]
+    education_level_id: int
+    grade_id: Optional[int] = None
+    stream_id: Optional[int] = None
+    medium: Literal["en", "ta", "si"]
+    subject_ids: list[int] = Field(min_length=1, max_length=20)
+    teacher_grade_ids: list[int] = Field(default_factory=list, max_length=13)
+    teacher_subject_ids: list[int] = Field(default_factory=list, max_length=30)
+    school_name: Optional[str] = Field(default=None, max_length=255)
+    district: Optional[str] = Field(default=None, max_length=100)
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("school_name", "district")
+    @classmethod
+    def clean_optional_text(cls, value: Optional[str]) -> Optional[str]:
+        value = value.strip() if value else None
+        return value or None

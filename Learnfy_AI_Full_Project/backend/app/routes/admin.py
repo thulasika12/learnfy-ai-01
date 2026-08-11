@@ -166,6 +166,10 @@ def get_statistics(db: Session = Depends(get_db), _: User = Depends(require_admi
         "pending_student_verifications": db.query(StudentVerification).filter(StudentVerification.status == StudentProofStatus.pending).count(),
         "reported_notes": db.query(Note).filter(Note.is_reported.is_(True)).count(),
         "pending_reports": db.query(ContentReport).filter(ContentReport.status == ReportStatus.pending).count(),
-        "active_subscriptions": db.query(Subscription).filter(Subscription.status == "active", Subscription.current_period_end > now).count(),
+        # Select only the primary key for this count. Querying the mapped entity
+        # makes SQLAlchemy include every subscription column in the subquery,
+        # which breaks statistics on legacy databases that predate optional
+        # Stripe metadata columns.
+        "active_subscriptions": db.query(Subscription.id).filter(Subscription.status == "active", Subscription.current_period_end > now).count(),
         "successful_payments": db.query(Payment).filter(Payment.status == "success").count(),
     }

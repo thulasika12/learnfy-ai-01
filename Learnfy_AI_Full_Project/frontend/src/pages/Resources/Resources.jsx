@@ -10,13 +10,14 @@ import Card from "../../components/Card";
 import Loader from "../../components/Loader";
 import StreamSelect from "../../components/subjects/StreamSelect";
 import SubjectSelect from "../../components/subjects/SubjectSelect";
-import AcademicContextFields, { emptyAcademicContext } from "../../components/subjects/AcademicContextFields";
+import AcademicContextFields from "../../components/subjects/AcademicContextFields";
+import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
 
 export default function Resources() {
   const { user } = useAuth();
   const { data: resources, loading, refetch } = useFetch(() => getResources(), []);
   const [form, setForm] = useState({ title: "", description: "", stream: "Physical Science", subject: "Physics" });
-  const [academic, setAcademic] = useState(emptyAcademicContext);
+  const [academic, setAcademic] = useAcademicDefaults();
   const [filters, setFilters] = useState({ stream: "", subject: "" });
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
