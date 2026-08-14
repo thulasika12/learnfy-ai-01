@@ -1,9 +1,7 @@
 """Student badge proof submission and admin review."""
 from datetime import datetime, timezone
 from pathlib import Path
-from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.config.settings import settings
@@ -11,6 +9,8 @@ from app.models.student_verification import StudentProofStatus, StudentVerificat
 from app.models.user import StudentVerificationStatus, User, UserRole
 from app.utils.dependencies import get_current_user, require_admin
 from app.services.audit_service import add_admin_audit
+from app.services.file_service import save_upload_file
+from app.services.storage_service import file_response
 
 router = APIRouter(tags=["Student Verification"])
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
@@ -23,20 +23,8 @@ def serialize(item):
 
 def save_proof(upload: UploadFile):
     original = Path(upload.filename or "").name[:255]
-    suffix = Path(original).suffix.lower()
-    if suffix not in ALLOWED_EXTENSIONS or upload.content_type not in ALLOWED_TYPES:
-        raise HTTPException(400, "Proof must be a PDF, JPG, JPEG or PNG file")
-    limit = settings.STUDENT_VERIFICATION_MAX_MB * 1024 * 1024
-    content = upload.file.read(limit + 1)
-    if not content or len(content) > limit:
-        raise HTTPException(413, f"Proof file must not exceed {settings.STUDENT_VERIFICATION_MAX_MB} MB")
-    valid = content.startswith(b"%PDF-") if suffix == ".pdf" else content.startswith(b"\x89PNG\r\n\x1a\n") if suffix == ".png" else content.startswith(b"\xff\xd8\xff")
-    if not valid:
-        raise HTTPException(400, "Proof file contents do not match its declared type")
-    directory = Path(settings.STUDENT_VERIFICATION_DIR).resolve(); directory.mkdir(parents=True, exist_ok=True)
-    path = (directory / f"{uuid4().hex}{suffix}").resolve()
-    if directory not in path.parents: raise HTTPException(400, "Invalid filename")
-    path.write_bytes(content)
+    path = save_upload_file(upload, category="private/student-verifications", allowed_extensions=ALLOWED_EXTENSIONS,
+        max_mb=settings.STUDENT_VERIFICATION_MAX_MB, private=True, local_root=settings.STUDENT_VERIFICATION_DIR)
     return str(path), original
 
 @router.get("/student-verifications/me")
@@ -66,8 +54,8 @@ def admin_list(status_filter: str | None = Query(None, alias="status"), db: Sess
 @router.get("/admin/student-verifications/{item_id}/document")
 def document(item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     item = db.query(StudentVerification).filter(StudentVerification.id == item_id).first()
-    if not item or not Path(item.proof_file_path).is_file(): raise HTTPException(404, "Document not found")
-    return FileResponse(item.proof_file_path, filename=item.original_filename)
+    if not item: raise HTTPException(404, "Document not found")
+    return file_response(item.proof_file_path, filename=item.original_filename, local_root=settings.STUDENT_VERIFICATION_DIR)
 
 @router.post("/admin/student-verifications/{item_id}/approve")
 def approve(item_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):

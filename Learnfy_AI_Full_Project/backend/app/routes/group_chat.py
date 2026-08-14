@@ -1,6 +1,7 @@
 """Secure real-time messaging layered onto the existing Study Group discussions."""
 import os
 import uuid
+from io import BytesIO
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +23,7 @@ from app.models.resource import Resource
 from app.models.user import User, UserRole
 from app.services.audit_service import add_admin_audit
 from app.services.group_safety import PHOTO_BLOCKED_MESSAGE, validate_group_text
+from app.services.storage_service import delete_file, file_response, store_bytes
 from app.utils.dependencies import get_current_user
 
 router=APIRouter(prefix="/groups",tags=["Study Group Chat"])
@@ -111,9 +113,10 @@ async def delete_message(group_id:int,message_id:int,db:Session=Depends(get_db),
     item=query_message(db,message_id)
     if not item or item.group_id!=group_id: raise HTTPException(404,"Message not found")
     if item.user_id!=user.id and (not membership or membership.role!="admin") and user.role!=UserRole.admin: raise HTTPException(403,"Insufficient permission")
+    attachment=item.attachment_url
     item.deleted_at=datetime.now(timezone.utc); item.message=""; item.attachment_url=None
     if item.user_id!=user.id: add_admin_audit(db,user.id,"group_message_removed","group_message",item.id,"Removed by group or platform admin")
-    db.commit(); item=query_message(db,item.id); data=serialize(item,db); await broadcast(group_id,{"type":"message.updated","message":data}); return data
+    db.commit(); delete_file(attachment,local_root="app/private/group-chat"); item=query_message(db,item.id); data=serialize(item,db); await broadcast(group_id,{"type":"message.updated","message":data}); return data
 
 @router.post("/{group_id}/messages/{message_id}/reactions")
 async def react(group_id:int,message_id:int,payload:ReactionBody,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
@@ -138,12 +141,12 @@ async def upload(group_id:int,file:UploadFile=File(...),reply_to_message_id:Opti
     data=file.file.read(settings.MAX_UPLOAD_SIZE_MB*1024*1024+1); file.file.close()
     if len(data)>settings.MAX_UPLOAD_SIZE_MB*1024*1024: raise HTTPException(413,f"File exceeds {settings.MAX_UPLOAD_SIZE_MB}MB limit")
     if not data.startswith(b"%PDF-"): raise HTTPException(400,"Invalid or corrupted PDF study material")
-    private_dir=Path("app/private/group-chat"); private_dir.mkdir(parents=True,exist_ok=True); storage_name=f"{uuid.uuid4().hex}.pdf"; path=private_dir/storage_name
     try:
-        path.write_bytes(data); reader=PdfReader(str(path)); _=len(reader.pages)
+        reader=PdfReader(BytesIO(data)); _=len(reader.pages)
         if reader.is_encrypted: raise ValueError("encrypted")
     except Exception:
-        path.unlink(missing_ok=True); raise HTTPException(400,"Invalid, corrupted or password-protected PDF study material")
+        raise HTTPException(400,"Invalid, corrupted or password-protected PDF study material")
+    storage_name=store_bytes(data,"private/group-chat",".pdf","application/pdf",Path(file.filename).name,private=True,local_root="app/private/group-chat")
     item=GroupDiscussion(group_id=group_id,user_id=user.id,message=Path(file.filename).name,reply_to_message_id=reply_to_message_id,message_type="pdf",attachment_url=storage_name,attachment_name=Path(file.filename).name,attachment_size=len(data)); db.add(item); db.commit(); data=serialize(query_message(db,item.id),db); await broadcast(group_id,{"type":"message.created","message":data}); return data
 
 @router.get("/{group_id}/shareable-resources")
@@ -171,9 +174,7 @@ def safe_download_path(relative_url:str):
 def download_attachment(group_id:int,message_id:int,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
     member(db,group_id,user.id); item=db.query(GroupDiscussion).filter_by(id=message_id,group_id=group_id).first()
     if not item or item.deleted_at or item.message_type!="pdf" or not item.attachment_url: raise HTTPException(404,"Attachment not found")
-    path=Path("app/private/group-chat")/Path(item.attachment_url).name
-    if not path.is_file(): raise HTTPException(404,"Attachment not found")
-    return FileResponse(path,media_type="application/pdf",filename=item.attachment_name)
+    return file_response(item.attachment_url,media_type="application/pdf",filename=item.attachment_name,local_root="app/private/group-chat")
 
 @router.get("/{group_id}/messages/{message_id}/learning-resource")
 def download_resource(group_id:int,message_id:int,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
@@ -181,7 +182,7 @@ def download_resource(group_id:int,message_id:int,db:Session=Depends(get_db),use
     if not item or item.deleted_at: raise HTTPException(404,"Learning resource not found")
     source=db.query(Note).filter_by(id=item.learning_resource_id,is_hidden=False).first() if item.learning_resource_type=="note" else db.query(Resource).filter_by(id=item.learning_resource_id,is_hidden=False).first()
     if not source or not source.file_url: raise HTTPException(404,"Learning resource file not found")
-    return FileResponse(safe_download_path(source.file_url),filename=Path(source.file_url).name)
+    return file_response(source.file_url,filename=Path(source.file_url).name)
 
 @router.get("/{group_id}/members")
 def members(group_id:int,db:Session=Depends(get_db),user:User=Depends(get_current_user)):

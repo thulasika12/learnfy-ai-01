@@ -11,6 +11,7 @@ from app.models.note import Note, Like, Bookmark
 from app.models.user import User, UserRole
 from app.schemas.note_schema import NoteOut, NoteUpdate
 from app.services.file_service import save_upload_file
+from app.services.storage_service import delete_file
 from app.utils.dependencies import get_current_user, get_optional_current_user
 
 router = APIRouter(prefix="/notes", tags=["Notes"])
@@ -148,8 +149,10 @@ def delete_note(
     if note.user_id != current_user.id and current_user.role != UserRole.admin:
         raise HTTPException(status_code=403, detail="You can only delete your own notes")
 
+    file_url = note.file_url
     db.delete(note)
     db.commit()
+    delete_file(file_url)
     return None
 
 

@@ -1,6 +1,7 @@
 """Complete private AI flashcard API with study, export, sharing, and reminders."""
 import os
 import secrets
+from io import BytesIO
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from app.schemas.flashcard_schema import (
 )
 from app.services.document_service import extract_text_from_path, extract_text_from_upload
 from app.services.file_service import save_upload_file
+from app.services.storage_service import delete_file, read_bytes
 from app.services.flashcard_export_service import build_csv, build_pdf, safe_export_name
 from app.utils.dependencies import get_current_user
 
@@ -111,8 +113,12 @@ def generate_from_note(
         raise HTTPException(status_code=404, detail="Note not found")
     parts = [note.title, note.description or ""]
     if note.file_url:
-        relative = note.file_url.removeprefix("/uploads/")
-        parts.append(extract_text_from_path(os.path.join(settings.UPLOAD_DIR, relative)))
+        if note.file_url.startswith(("s3://", "/files/")):
+            upload = UploadFile(file=BytesIO(read_bytes(note.file_url)), filename=Path(note.file_url).name)
+            parts.append(extract_text_from_upload(upload))
+        else:
+            relative = note.file_url.removeprefix("/uploads/")
+            parts.append(extract_text_from_path(os.path.join(settings.UPLOAD_DIR, relative)))
     text = "\n".join(part for part in parts if part).strip()
     if len(text) < 20:
         raise HTTPException(status_code=400, detail="This note does not contain enough readable text")
@@ -194,8 +200,9 @@ def favourite_card(card_id: int, db: Session = Depends(get_db), user: User = Dep
 def upload_card_image(card_id: int, file: UploadFile = File(...), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     card = db.query(Flashcard).join(FlashcardSet).filter(Flashcard.id == card_id, FlashcardSet.user_id == user.id).first()
     if not card: raise HTTPException(status_code=404, detail="Flashcard not found")
+    previous = card.image_url
     card.image_url = save_upload_file(file, category="flashcards", allowed_extensions={".jpg", ".jpeg", ".png", ".webp"})
-    db.commit(); return {"image_url": card.image_url}
+    db.commit(); delete_file(previous); return {"image_url": card.image_url}
 
 
 @router.post("/sets/{set_id}/study-sessions", response_model=StudySessionOut, status_code=201)

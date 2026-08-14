@@ -2,9 +2,7 @@
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
 from sqlalchemy.exc import IntegrityError
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy.orm import Session
@@ -16,6 +14,8 @@ from app.models.user import User, UserRole
 from app.schemas.teacher_verification_schema import RejectionRequest, TeacherVerificationOut
 from app.utils.dependencies import get_current_user, require_admin
 from app.services.audit_service import add_admin_audit
+from app.services.file_service import save_upload_file
+from app.services.storage_service import delete_file, file_response
 
 router = APIRouter(tags=["Teacher Verification"])
 ALLOWED_EXTENSIONS={".pdf",".jpg",".jpeg",".png"}; ALLOWED_TYPES={"application/pdf","image/jpeg","image/png"}
@@ -32,16 +32,10 @@ def serialize(item: TeacherVerification) -> TeacherVerificationOut:
         rejection_reason=item.rejection_reason,submitted_at=item.submitted_at,reviewed_at=item.reviewed_at,reviewed_by=item.reviewed_by,has_proof=True,applicant_email=item.applicant.email if item.applicant else None)
 
 def save_private_proof(upload: UploadFile) -> tuple[str,str]:
-    original=Path(upload.filename or "").name[:255];suffix=Path(original).suffix.lower()
-    if suffix not in ALLOWED_EXTENSIONS or upload.content_type not in ALLOWED_TYPES: raise HTTPException(400,"Proof must be a PDF, JPG, JPEG or PNG file")
-    limit=settings.TEACHER_VERIFICATION_MAX_MB*1024*1024; content=upload.file.read(limit+1)
-    if not content or len(content)>limit: raise HTTPException(413,f"Proof file must not exceed {settings.TEACHER_VERIFICATION_MAX_MB} MB")
-    valid=(content.startswith(b"%PDF-") if suffix==".pdf" else content.startswith(b"\x89PNG\r\n\x1a\n") if suffix==".png" else content.startswith(b"\xff\xd8\xff"))
-    if not valid: raise HTTPException(400,"Proof file contents do not match its declared type")
-    directory=Path(settings.TEACHER_VERIFICATION_DIR).resolve(); directory.mkdir(parents=True,exist_ok=True)
-    path=(directory/f"{uuid4().hex}{suffix}").resolve()
-    if directory not in path.parents: raise HTTPException(400,"Invalid filename")
-    path.write_bytes(content); return str(path),original
+    original=Path(upload.filename or "").name[:255]
+    path=save_upload_file(upload, category="private/teacher-verifications", allowed_extensions=ALLOWED_EXTENSIONS,
+        max_mb=settings.TEACHER_VERIFICATION_MAX_MB, private=True, local_root=settings.TEACHER_VERIFICATION_DIR)
+    return path,original
 
 @router.post("/teacher-verifications",response_model=TeacherVerificationOut,status_code=201)
 def submit_verification(full_name:str=Form(...,min_length=2,max_length=150),qualification:str=Form(...,min_length=2,max_length=255),institution_name:str=Form(...,min_length=2,max_length=255),subjects_taught:str=Form(...),years_of_experience:int=Form(...,ge=0,le=70),grades_taught:str=Form("General"),official_email:str|None=Form(None),additional_information:str|None=Form(None,max_length=2000),proof:UploadFile=File(...),db:Session=Depends(get_db),user:User=Depends(get_current_user)):
@@ -55,7 +49,7 @@ def submit_verification(full_name:str=Form(...,min_length=2,max_length=150),qual
     db.add(item)
     db.add(Notification(user_id=user.id,type="teacher_verification",title="Teacher application submitted",message="Your teacher application is pending administrator review.",link="/teacher-verification"))
     try: db.commit()
-    except IntegrityError: db.rollback(); Path(path).unlink(missing_ok=True); raise HTTPException(409,"A pending teacher verification already exists")
+    except IntegrityError: db.rollback(); delete_file(path,local_root=settings.TEACHER_VERIFICATION_DIR); raise HTTPException(409,"A pending teacher verification already exists")
     db.refresh(item); return serialize(item)
 
 @router.get("/teacher-verifications/me",response_model=TeacherVerificationOut|None)
@@ -65,9 +59,8 @@ def my_verification(db:Session=Depends(get_db),user:User=Depends(get_current_use
 @router.get("/teacher-verifications/{verification_id}/document")
 def applicant_document(verification_id:int,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
     item=db.query(TeacherVerification).filter(TeacherVerification.id==verification_id,TeacherVerification.user_id==user.id).first()
-    private_root=Path(settings.TEACHER_VERIFICATION_DIR).resolve();proof_path=Path(item.proof_file_path).resolve() if item else None
-    if not item or private_root not in proof_path.parents or not proof_path.is_file(): raise HTTPException(404,"Verification document not found")
-    return FileResponse(proof_path,filename=item.original_filename or f"teacher-proof-{item.id}{proof_path.suffix}")
+    if not item: raise HTTPException(404,"Verification document not found")
+    return file_response(item.proof_file_path,filename=item.original_filename or f"teacher-proof-{item.id}",local_root=settings.TEACHER_VERIFICATION_DIR)
 
 @router.get("/admin/teacher-verifications",response_model=list[TeacherVerificationOut])
 def admin_list(status_filter:str|None=Query(None,alias="status"),db:Session=Depends(get_db),_:User=Depends(require_admin)):
@@ -86,9 +79,9 @@ def admin_detail(verification_id:int,db:Session=Depends(get_db),_:User=Depends(r
 @router.get("/admin/teacher-verifications/{verification_id}/document")
 def admin_document(verification_id:int,db:Session=Depends(get_db),_:User=Depends(require_admin)):
     item=db.query(TeacherVerification).filter(TeacherVerification.id==verification_id).first()
-    private_root=Path(settings.TEACHER_VERIFICATION_DIR).resolve(); proof_path=Path(item.proof_file_path).resolve() if item else None
-    if not item or private_root not in proof_path.parents or not proof_path.is_file(): raise HTTPException(404,"Verification document not found")
-    return FileResponse(proof_path,filename=f"teacher-proof-{item.id}{proof_path.suffix}")
+    if not item: raise HTTPException(404,"Verification document not found")
+    suffix=Path(item.original_filename or "").suffix
+    return file_response(item.proof_file_path,filename=f"teacher-proof-{item.id}{suffix}",local_root=settings.TEACHER_VERIFICATION_DIR)
 
 def pending_item(db,id):
     item=db.query(TeacherVerification).filter(TeacherVerification.id==id).with_for_update().first()

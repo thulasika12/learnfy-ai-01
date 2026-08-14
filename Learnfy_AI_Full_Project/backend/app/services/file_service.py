@@ -1,13 +1,12 @@
 """Validated local upload handling."""
-import os
 import logging
-import uuid
 import zipfile
 from io import BytesIO
 from pathlib import Path
 from typing import Optional, Set
 from fastapi import UploadFile, HTTPException
 from app.config.settings import settings
+from app.services.storage_service import store_bytes
 
 DEFAULT_ALLOWED = {".pdf", ".doc", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".webp", ".ppt", ".pptx"}
 logger = logging.getLogger("learnfy.uploads")
@@ -38,7 +37,8 @@ def _validate_signature(ext: str, data: bytes) -> None:
             raise HTTPException(400, "Invalid Office document container") from exc
 
 
-def save_upload_file(file: UploadFile, category: str = "notes", allowed_extensions: Optional[Set[str]] = None) -> str:
+def save_upload_file(file: UploadFile, category: str = "notes", allowed_extensions: Optional[Set[str]] = None,
+                     *, max_mb: int | None = None, private: bool = False, local_root: str | None = None) -> str:
     if not file.filename:
         raise HTTPException(status_code=400, detail="A file is required")
     safe_original = Path(file.filename).name
@@ -51,11 +51,8 @@ def save_upload_file(file: UploadFile, category: str = "notes", allowed_extensio
     if ext in MIME_BY_EXT and declared_mime not in MIME_BY_EXT[ext]:
         logger.warning("upload_rejected category=%s reason=mime_mismatch", category)
         raise HTTPException(400, "File MIME type does not match its extension")
-    folder = os.path.join(settings.UPLOAD_DIR, category)
-    os.makedirs(folder, exist_ok=True)
-    unique_name = f"{uuid.uuid4().hex}{ext}"
-    file_path = os.path.join(folder, unique_name)
-    max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    max_size_mb = max_mb or settings.MAX_UPLOAD_SIZE_MB
+    max_bytes = max_size_mb * 1024 * 1024
     size = 0
     try:
         chunks = []
@@ -63,16 +60,11 @@ def save_upload_file(file: UploadFile, category: str = "notes", allowed_extensio
             size += len(chunk)
             if size > max_bytes:
                 logger.warning("upload_rejected category=%s reason=size", category)
-                raise HTTPException(status_code=413, detail=f"File exceeds {settings.MAX_UPLOAD_SIZE_MB}MB limit")
+                raise HTTPException(status_code=413, detail=f"File exceeds {max_size_mb}MB limit")
             chunks.append(chunk)
         data = b"".join(chunks)
         _validate_signature(ext, data)
-        with open(file_path, "xb") as buffer:
-            buffer.write(data)
-    except Exception:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        raise
+        return store_bytes(data, category, ext, declared_mime, safe_original,
+                           private=private, local_root=local_root)
     finally:
         file.file.close()
-    return f"/uploads/{category}/{unique_name}"

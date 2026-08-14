@@ -23,7 +23,7 @@ from app.config.database import engine
 # Import all models so SQLAlchemy is aware of them before create_all() runs
 from app.models import user, note, group, chat, quiz, resource, auth_token, payment, flashcard, notification, subject, academic, teacher_verification, email_verification, student_verification, admin_audit, content_report, entitlement  # noqa: F401
 
-from app.routes import auth, users, notes, comments, groups, group_chat, ai, chat as chat_routes, resources, admin, payments, flashcards, notifications, subjects, dashboard, academic, teacher_verifications, student_verifications, reports, entitlements
+from app.routes import auth, users, notes, comments, groups, group_chat, ai, chat as chat_routes, resources, admin, payments, flashcards, notifications, subjects, dashboard, academic, teacher_verifications, student_verifications, reports, entitlements, files
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("learnfy")
@@ -122,6 +122,7 @@ app.include_router(teacher_verifications.router)
 app.include_router(student_verifications.router)
 app.include_router(reports.router)
 app.include_router(entitlements.router)
+app.include_router(files.router)
 
 
 @app.get("/", tags=["Health"])

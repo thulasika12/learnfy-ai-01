@@ -30,11 +30,11 @@ class Settings(BaseSettings):
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     MAX_UPLOAD_SIZE_MB: int = 20
     STORAGE_BACKEND: str = "local"
-    S3_BUCKET: str = ""
-    S3_ENDPOINT_URL: str = ""
-    S3_REGION: str = ""
-    S3_ACCESS_KEY_ID: str = ""
-    S3_SECRET_ACCESS_KEY: str = ""
+    AWS_ENDPOINT_URL: str = ""
+    AWS_S3_BUCKET_NAME: str = ""
+    AWS_DEFAULT_REGION: str = ""
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
     PRIVATE_URL_EXPIRE_SECONDS: int = 900
     UPLOAD_QUOTA_MB_PER_USER: int = 250
     ANTIVIRUS_ENABLED: bool = False
@@ -87,6 +87,9 @@ class Settings(BaseSettings):
                 raise ValueError("DATABASE_URL must be configured in production")
             if self.STORAGE_BACKEND != "s3":
                 raise ValueError("STORAGE_BACKEND=s3 is required in production")
+            if not all((self.AWS_ENDPOINT_URL, self.AWS_S3_BUCKET_NAME, self.AWS_DEFAULT_REGION,
+                        self.AWS_ACCESS_KEY_ID, self.AWS_SECRET_ACCESS_KEY)):
+                raise ValueError("Railway S3 bucket settings must be configured in production")
             if not self.REDIS_URL:
                 raise ValueError("REDIS_URL is required in production")
             if self.PAYMENTS_ENABLED:

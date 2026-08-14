@@ -8,6 +8,7 @@ from app.models.subject import Subject
 from app.schemas.user_schema import UserOut, UserUpdate, DeleteAccountRequest, OnboardingRequest, Token
 from app.services.auth_service import issue_token_pair
 from app.services.file_service import save_upload_file
+from app.services.storage_service import delete_file
 from app.config.security import verify_password
 from app.utils.dependencies import get_current_user
 
@@ -63,8 +64,10 @@ def complete_onboarding(payload: OnboardingRequest, db: Session = Depends(get_db
 
 @router.post("/profile/avatar", response_model=UserOut)
 def upload_avatar(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    previous = current_user.profile_image
     current_user.profile_image = save_upload_file(file, category="profile", allowed_extensions={".jpg", ".jpeg", ".png", ".webp"})
     db.commit(); db.refresh(current_user)
+    delete_file(previous)
     return current_user
 
 @router.delete("/account", status_code=status.HTTP_200_OK)
