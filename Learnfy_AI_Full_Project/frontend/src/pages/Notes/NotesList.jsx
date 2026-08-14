@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import useFetch from "../../hooks/useFetch";
 import { getNotes, toggleLike, toggleBookmark } from "../../services/api";
 import NoteCard from "../../components/NoteCard";
-import Loader from "../../components/Loader";
+import { SkeletonGrid } from "../../components/Motion";
 import AcademicContextFields from "../../components/subjects/AcademicContextFields";
 import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
 
@@ -63,7 +63,7 @@ export default function NotesList() {
       <div className="relative z-10"><AcademicContextFields value={academic} onChange={setAcademic} requireSubject={false} className="grid gap-3 md:grid-cols-3" /></div>
 
       {error ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">{error}</div> : loading ? (
-        <Loader />
+        <SkeletonGrid />
       ) : notes?.length ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {notes.map((note) => (

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
+import { PageTransition } from "../components/Motion";
 
 export default function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -12,7 +13,7 @@ export default function DashboardLayout() {
       <div className="flex max-w-7xl mx-auto">
         <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
         <main className="flex-1 p-4 md:p-8 min-w-0">
-          <Outlet />
+          <PageTransition><Outlet /></PageTransition>
         </main>
       </div>
     </div>

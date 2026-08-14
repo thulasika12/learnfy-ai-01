@@ -4,7 +4,7 @@ import Card from "./Card";
 
 export default function NoteCard({ note, onLike, onBookmark }) {
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3 focus-within:ring-2 focus-within:ring-primary-400">
       <div className="flex items-start justify-between">
         <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary-50 text-primary-700">
           {[note.grade, note.subject, note.medium?.toUpperCase()].filter(Boolean).join(" · ")}

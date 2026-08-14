@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { FiChevronDown, FiGlobe, FiLogOut, FiMenu, FiMoon, FiSettings, FiSun, FiUser, FiX } from "react-icons/fi";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { useAuth } from "../hooks/useAuth";
 import { usePreferences } from "../hooks/usePreferences";
@@ -14,14 +15,14 @@ const aiLinks = [
   ["/ai/chat", "nav.aiDoubtSolver"], ["/ai/summary", "nav.aiSummarizer"],
   ["/ai/quiz", "nav.quizGenerator"], ["/ai/flashcards", "nav.flashcards"], ["/ai/planner", "nav.studyPlanner"],
 ];
-const linkClass = ({ isActive }) => `rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${isActive ? "bg-primary-50 text-primary-700 dark:bg-slate-800 dark:text-primary-300" : "text-slate-600 hover:text-primary-600 dark:text-slate-300"}`;
+const linkClass = ({ isActive }) => `nav-link-motion rounded-lg px-2.5 py-2 text-sm font-medium ${isActive ? "bg-primary-50 text-primary-700 after:scale-x-100 dark:bg-slate-800 dark:text-primary-300" : "text-slate-600 hover:text-primary-600 dark:text-slate-300"}`;
 
 function NavigationLinks({ mobile=false, links, t, aiOpen, setAiOpen, aiRef }) {
   return <div className={mobile?"grid gap-1":"hidden items-center gap-0.5 xl:flex"}>
     {links.slice(0,3).map(([to,key])=><NavLink key={to} end={to==="/"} to={to} className={linkClass}>{t(key)}</NavLink>)}
     <div ref={mobile?undefined:aiRef} className="relative">
       <button type="button" aria-expanded={aiOpen} aria-haspopup="menu" onClick={()=>setAiOpen(open=>!open)} className="flex w-full items-center gap-1 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-600 hover:text-primary-600 dark:text-slate-300">{t("nav.aiTools")}<FiChevronDown/></button>
-      {aiOpen&&<div role="menu" className={`${mobile?"ml-3":"absolute left-0 top-full z-50 mt-1 w-56 shadow-xl"} rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900`}>{aiLinks.map(([to,key])=><NavLink key={to} to={to} className={({isActive})=>`block rounded-lg px-3 py-2 text-sm ${isActive?"bg-primary-50 text-primary-700 dark:bg-slate-800":"hover:bg-slate-50 dark:hover:bg-slate-800"}`}>{t(key)}</NavLink>)}</div>}
+      <AnimatePresence>{aiOpen&&<motion.div role="menu" initial={{opacity:0,scale:.97,y:-4}} animate={{opacity:1,scale:1,y:0}} exit={{opacity:0,scale:.97,y:-4}} transition={{duration:.16}} className={`${mobile?"ml-3":"absolute left-0 top-full z-50 mt-1 w-56 shadow-xl origin-top-left"} rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900`}>{aiLinks.map(([to,key])=><NavLink key={to} to={to} className={({isActive})=>`block rounded-lg px-3 py-2 text-sm ${isActive?"bg-primary-50 text-primary-700 dark:bg-slate-800":"hover:bg-slate-50 dark:hover:bg-slate-800"}`}>{t(key)}</NavLink>)}</motion.div>}</AnimatePresence>
     </div>
     {links.slice(3).map(([to,key])=><NavLink key={to} to={to} className={linkClass}>{t(key)}</NavLink>)}
   </div>;
@@ -37,7 +38,7 @@ export default function Navbar({ onToggleSidebar, showSidebarToggle = false }) {
   const handleLogout=async()=>{await logout();navigate("/login");};
   const visibleLinks=user?.role==="admin"?[...primaryLinks,["/admin/dashboard","nav.admin"]]:primaryLinks;
 
-  return <header className="sticky top-0 z-40 border-b border-slate-100 bg-white/90 backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95">
+  return <motion.header initial={{opacity:0,y:-12}} animate={{opacity:1,y:0}} transition={{duration:.35,ease:[.22,1,.36,1]}} className="sticky top-0 z-40 border-b border-slate-100 bg-white/90 backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95">
     <div className="mx-auto flex min-h-16 max-w-[90rem] items-center justify-between gap-3 px-4 md:px-6">
       <div className="flex min-w-0 items-center gap-2">{showSidebarToggle&&<button type="button" onClick={onToggleSidebar} aria-label="Open sidebar" className="rounded-lg p-2 md:hidden"><FiMenu size={22}/></button>}<Link to="/" className="flex shrink-0 items-center gap-2"><img src="/images/logo.png" alt="Learnfy AI" className="h-9 w-9 rounded-lg object-cover"/><span className="hidden font-extrabold tracking-tight sm:inline">Learnfy AI</span></Link></div>
       <NavigationLinks links={visibleLinks} t={t} aiOpen={aiOpen} setAiOpen={setAiOpen} aiRef={aiRef}/>
@@ -48,6 +49,6 @@ export default function Navbar({ onToggleSidebar, showSidebarToggle = false }) {
         <button type="button" onClick={()=>setMobileOpen(open=>!open)} aria-expanded={mobileOpen} aria-label={mobileOpen?"Close navigation":"Open navigation"} className="rounded-lg p-2 xl:hidden">{mobileOpen?<FiX size={21}/>:<FiMenu size={21}/>}</button>
       </div>
     </div>
-    {mobileOpen&&<nav aria-label="Main navigation" className="border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900 xl:hidden"><NavigationLinks mobile links={visibleLinks} t={t} aiOpen={aiOpen} setAiOpen={setAiOpen} aiRef={aiRef}/>{!isAuthenticated&&<div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 dark:border-slate-700"><NavLink to="/login" className={linkClass}>{t("nav.login")}</NavLink><Link to="/register" className="btn-primary py-2">{t("nav.getStarted")}</Link></div>}</nav>}
-  </header>;
+    <AnimatePresence>{mobileOpen&&<motion.nav initial={{opacity:0,height:0}} animate={{opacity:1,height:"auto"}} exit={{opacity:0,height:0}} aria-label="Main navigation" className="overflow-hidden border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900 xl:hidden"><NavigationLinks mobile links={visibleLinks} t={t} aiOpen={aiOpen} setAiOpen={setAiOpen} aiRef={aiRef}/>{!isAuthenticated&&<div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 dark:border-slate-700"><NavLink to="/login" className={linkClass}>{t("nav.login")}</NavLink><Link to="/register" className="btn-primary py-2">{t("nav.getStarted")}</Link></div>}</motion.nav>}</AnimatePresence>
+  </motion.header>;
 }

@@ -7,6 +7,7 @@ import ChatMessage from "../../components/ChatMessage";
 import Card from "../../components/Card";
 import AcademicContextFields, { emptyAcademicContext } from "../../components/subjects/AcademicContextFields";
 import { usePreferences } from "../../hooks/usePreferences";
+import { TypingIndicator } from "../../components/Motion";
 
 export default function AIChat() {
   const [messages, setMessages] = useState([
@@ -60,13 +61,7 @@ export default function AIChat() {
           {messages.map((m, i) => (
             <ChatMessage key={i} role={m.role} content={m.content} />
           ))}
-          {loading && (
-            <div className="flex items-center gap-2 text-slate-400 text-sm pl-11">
-              <span className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" />
-              <span className="w-2 h-2 rounded-full bg-primary-400 animate-bounce [animation-delay:0.1s]" />
-              <span className="w-2 h-2 rounded-full bg-primary-400 animate-bounce [animation-delay:0.2s]" />
-            </div>
-          )}
+          {loading && <TypingIndicator />}
           <div ref={bottomRef} />
         </div>
 

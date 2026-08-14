@@ -12,6 +12,21 @@ body {
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+@keyframes brand-drift { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(2%,-2%,0) scale(1.05); } }
+@keyframes success-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+
+@layer utilities {
+  .animate-brand-drift { animation: brand-drift 10s ease-in-out infinite; }
+  .success-check { stroke-dasharray: 24; animation: success-draw .45s ease-out forwards; }
+  .motion-card { @apply transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:shadow-xl focus-within:-translate-y-1 focus-within:shadow-xl; }
+  .nav-link-motion { @apply relative transition-colors duration-200 after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:origin-left after:scale-x-0 after:rounded-full after:bg-primary-500 after:transition-transform after:duration-200 hover:after:scale-x-100; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .motion-card:hover, .motion-card:focus-within { transform: none !important; }
+}
+
 @layer components {
   .auth-login-input {
     @apply w-full rounded-[14px] border border-[#CBD5E1] bg-[#E5E7EB] px-4 py-3.5 text-[#111827] placeholder:text-[#64748B] outline-none transition-all duration-300 hover:border-[#94A3B8] focus:border-[#3B82F6] focus:ring-4 focus:ring-blue-500/15;

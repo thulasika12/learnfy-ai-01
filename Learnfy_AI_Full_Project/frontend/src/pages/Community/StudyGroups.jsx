@@ -1,4 +1,5 @@
-import { useState } from "react";
+/* eslint-disable no-unused-vars */
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   FiCheck,
@@ -25,6 +26,7 @@ import {
   rejectJoinRequest,
   getDiscussions,
   postDiscussion,
+  getGroupUnreadCounts,
 } from "../../services/api";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
@@ -32,6 +34,7 @@ import Modal from "../../components/Modal";
 import Loader from "../../components/Loader";
 import AcademicContextFields, { emptyAcademicContext } from "../../components/subjects/AcademicContextFields";
 import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
+import GroupChat from "../../components/groups/GroupChat";
 
 export default function StudyGroups() {
   const { t } = usePreferences();
@@ -52,6 +55,8 @@ export default function StudyGroups() {
   const [joinRequests, setJoinRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [reviewingRequest, setReviewingRequest] = useState(null);
+  const [unreadCounts, setUnreadCounts] = useState({});
+  useEffect(() => { getGroupUnreadCounts().then(({data}) => setUnreadCounts(data)).catch(() => {}); }, [groups]);
 
   const handleCreate = async (ev) => {
     ev.preventDefault();
@@ -110,6 +115,7 @@ export default function StudyGroups() {
       return;
     }
     setActiveGroup(group);
+    setUnreadCounts(current => ({ ...current, [group.id]: 0 }));
     setLoadingDiscussions(true);
     try {
       const res = await getDiscussions(group.id);
@@ -185,8 +191,9 @@ export default function StudyGroups() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {groups?.map((g) => (
-            <Card key={g.id} className="flex flex-col gap-3">
+            <Card key={g.id} className="relative flex flex-col gap-3">
               <h3 className="font-bold text-slate-800">{g.name}</h3>
+              {unreadCounts[g.id] > 0 && <span className="absolute right-4 top-4 rounded-full bg-primary-600 px-2 py-0.5 text-xs font-bold text-white" aria-label={`${unreadCounts[g.id]} unread messages`}>{unreadCounts[g.id]}</span>}
               {g.is_admin && (
                 <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
                   <FiShield /> {t("groups.admin")}
@@ -340,42 +347,8 @@ export default function StudyGroups() {
       </Modal>
 
       {/* Discussion Modal */}
-      <Modal isOpen={!!activeGroup} onClose={() => setActiveGroup(null)} title={activeGroup?.name} maxWidth="max-w-xl">
-        {loadingDiscussions ? (
-          <Loader />
-        ) : (
-          <div className="space-y-4">
-            <div className="max-h-80 overflow-y-auto space-y-3">
-              {discussions.map((d) => (
-                <div key={d.id} className="flex gap-3">
-                  <img
-                    src={d.user?.profile_image || `https://api.dicebear.com/7.x/initials/svg?seed=${d.user?.name}`}
-                    className="w-8 h-8 rounded-full object-cover"
-                    alt="user"
-                  />
-                  <div className="bg-slate-50 rounded-xl px-4 py-2.5 flex-1">
-                    <p className="text-sm font-semibold text-slate-700">{d.user?.name}</p>
-                    <p className="text-sm text-slate-600">{d.message}</p>
-                  </div>
-                </div>
-              ))}
-              {discussions.length === 0 && (
-                <p className="text-sm text-slate-400 text-center py-4">No messages yet. Start the discussion!</p>
-              )}
-            </div>
-            <form onSubmit={handlePostMessage} className="flex gap-2">
-              <input
-                className="input-field flex-1"
-                placeholder="Write a message..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-              />
-              <Button type="submit" loading={posting}>
-                <FiSend />
-              </Button>
-            </form>
-          </div>
-        )}
+      <Modal isOpen={!!activeGroup} onClose={() => setActiveGroup(null)} title="Group conversation" maxWidth="max-w-5xl">
+        {activeGroup && <GroupChat group={activeGroup} />}
       </Modal>
     </div>
   );

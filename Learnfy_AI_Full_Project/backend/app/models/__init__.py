@@ -9,7 +9,7 @@ from app.models.content_report import ContentReport
 from app.models.entitlement import DailyAIUsage, StripeEvent
 from app.models.user import User
 from app.models.note import Note, Comment, Like, Bookmark
-from app.models.group import StudyGroup, GroupMember, GroupJoinRequest, GroupDiscussion
+from app.models.group import StudyGroup, GroupMember, GroupJoinRequest, GroupDiscussion, GroupMessageReaction, GroupMessageRead, GroupMessageReport
 from app.models.chat import AIChat
 from app.models.quiz import Quiz
 from app.models.resource import Resource

@@ -142,6 +142,20 @@ export const rejectJoinRequest = (groupId, requestId) =>
   api.post(`/groups/${groupId}/join-requests/${requestId}/reject`);
 export const getDiscussions = (groupId) => api.get(`/groups/${groupId}/discussions`);
 export const postDiscussion = (groupId, data) => api.post(`/groups/${groupId}/discussions`, data);
+export const getGroupMessages = (groupId, params) => api.get(`/groups/${groupId}/messages`, { params });
+export const sendGroupMessage = (groupId, data) => api.post(`/groups/${groupId}/messages`, data);
+export const editGroupMessage = (groupId, messageId, data) => api.patch(`/groups/${groupId}/messages/${messageId}`, data);
+export const deleteGroupMessage = (groupId, messageId) => api.delete(`/groups/${groupId}/messages/${messageId}`);
+export const reactGroupMessage = (groupId, messageId, emoji) => api.post(`/groups/${groupId}/messages/${messageId}/reactions`, { emoji });
+export const reportGroupMessage = (groupId, messageId, reason) => api.post(`/groups/${groupId}/messages/${messageId}/report`, { reason });
+export const uploadGroupAttachment = (groupId, data, onUploadProgress) => api.post(`/groups/${groupId}/attachments`, data, { onUploadProgress });
+export const markGroupRead = (groupId, messageId) => api.post(`/groups/${groupId}/read`, { message_id: messageId });
+export const getGroupUnreadCounts = () => api.get("/groups/unread-counts/me");
+export const getShareableGroupResources = (groupId, search) => api.get(`/groups/${groupId}/shareable-resources`, { params: { search } });
+export const shareGroupLearningResource = (groupId, data) => api.post(`/groups/${groupId}/learning-resources`, data);
+export const downloadGroupFile = (url) => api.get(url, { responseType: "blob" });
+export const getGroupMembers = (groupId) => api.get(`/groups/${groupId}/members`);
+export const muteGroupMember = (groupId, memberId, minutes) => api.post(`/groups/${groupId}/members/${memberId}/mute`, { minutes });
 
 // ---------------------------------------------------------------------------
 // AI

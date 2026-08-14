@@ -18,6 +18,11 @@ import { DASHBOARD_STATS_EVENT, getDashboardStats, getNotes } from "../../servic
 import Card from "../../components/Card";
 import Loader from "../../components/Loader";
 import NoteCard from "../../components/NoteCard";
+import { CountUp } from "../../components/Motion";
+
+function LoadedStat({ loading, value }) {
+  return loading ? "…" : <CountUp value={value} />;
+}
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
 
@@ -72,7 +77,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-xs text-slate-500">Notes Uploaded</p>
-            <p className="text-xl font-bold text-slate-800">{statsLoading ? "…" : statValues.uploaded_notes}</p>
+            <p className="text-xl font-bold text-slate-800"><LoadedStat loading={statsLoading} value={statValues.uploaded_notes} /></p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -81,7 +86,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-xs text-slate-500">AI Doubts Solved</p>
-            <p className="text-xl font-bold text-slate-800">{statsLoading ? "…" : statValues.ai_doubts}</p>
+            <p className="text-xl font-bold text-slate-800"><LoadedStat loading={statsLoading} value={statValues.ai_doubts} /></p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -90,7 +95,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-xs text-slate-500">Study Groups</p>
-            <p className="text-xl font-bold text-slate-800">{statsLoading ? "…" : statValues.study_groups}</p>
+            <p className="text-xl font-bold text-slate-800"><LoadedStat loading={statsLoading} value={statValues.study_groups} /></p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -99,7 +104,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-xs text-slate-500">Quizzes Generated</p>
-            <p className="text-xl font-bold text-slate-800">{statsLoading ? "…" : statValues.quizzes_generated}</p>
+            <p className="text-xl font-bold text-slate-800"><LoadedStat loading={statsLoading} value={statValues.quizzes_generated} /></p>
           </div>
         </Card>
       </div>

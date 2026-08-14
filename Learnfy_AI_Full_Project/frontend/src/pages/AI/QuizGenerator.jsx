@@ -15,6 +15,7 @@ import Button from "../../components/Button";
 import Loader from "../../components/Loader";
 import AcademicContextFields from "../../components/subjects/AcademicContextFields";
 import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
+import { motion } from "framer-motion";
 
 export default function QuizGenerator() {
   const { language, t } = usePreferences();
@@ -190,7 +191,7 @@ export default function QuizGenerator() {
 
       {result && (
         <Card className="border border-primary-200 bg-brand-gradient-soft text-center dark:border-primary-800">
-          <FiAward className="mx-auto mb-2 text-4xl text-primary-600" />
+          <motion.div initial={{ scale: .75, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 220, damping: 18 }}><FiAward className="mx-auto mb-2 text-4xl text-primary-600" /></motion.div>
           <h2 className="text-xl font-bold text-slate-800">{t("quiz.result")}</h2>
           <div className="my-4 flex items-center justify-center gap-8">
             <div>
@@ -215,7 +216,7 @@ export default function QuizGenerator() {
           {quiz.questions.map((question, index) => {
             const review = reviewByQuestion[question.id];
             return (
-              <Card key={question.id}>
+              <motion.div key={question.id} initial={{opacity:0,x:16}} animate={{opacity:1,x:0}} transition={{delay:index*.035}}><Card>
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <p className="font-semibold text-slate-800">
                     {index + 1}. {question.question}
@@ -281,7 +282,7 @@ export default function QuizGenerator() {
                     </p>}
                   </div>
                 )}
-              </Card>
+              </Card></motion.div>
             );
           })}
 

@@ -59,6 +59,7 @@ const stats = [
   ["24/7", "Doubt assistance"],
   ["One place", "For every learner"],
 ];
+const learningFlow = ["Discover", "Understand", "Practise", "Connect", "Track"];
 
 export default function Home() {
   const { t } = usePreferences();
@@ -82,26 +83,24 @@ export default function Home() {
 
         <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-14 px-6 py-20 lg:grid-cols-[1.1fr_.9fr] lg:py-28">
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            initial="hidden" animate="show" variants={{ hidden:{opacity:0}, show:{opacity:1,transition:{staggerChildren:.1}} }}
           >
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-white/10 px-4 py-2 text-sm font-semibold text-cyan-100 backdrop-blur">
+            <motion.div variants={{hidden:{opacity:0,y:16},show:{opacity:1,y:0}}} className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-white/10 px-4 py-2 text-sm font-semibold text-cyan-100 backdrop-blur">
               <FiZap className="text-cyan-300" /> {t("home.badge")}
-            </div>
+            </motion.div>
 
-            <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-7xl">
+            <motion.h1 variants={{hidden:{opacity:0,y:18},show:{opacity:1,y:0}}} className="max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-7xl">
               {t("home.heroOne")}
               <span className="block bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-300 bg-clip-text text-transparent">
                 {t("home.heroTwo")}
               </span>
-            </h1>
+            </motion.h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300 md:text-xl">
+            <motion.p variants={{hidden:{opacity:0,y:18},show:{opacity:1,y:0}}} className="mt-6 max-w-2xl break-words text-lg leading-8 text-slate-300 md:text-xl">
               {t("home.description")}
-            </p>
+            </motion.p>
 
-            <div className="mt-9 flex flex-col gap-4 sm:flex-row">
+            <motion.div variants={{hidden:{opacity:0,y:18},show:{opacity:1,y:0}}} className="mt-9 flex flex-col gap-4 sm:flex-row">
               <Link
                 to="/register"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 px-7 py-3.5 font-bold text-slate-950 shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:shadow-cyan-400/30"
@@ -114,7 +113,7 @@ export default function Home() {
               >
                 <FiPlay /> {t("home.exploreNotes")}
               </Link>
-            </div>
+            </motion.div>
 
             <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-300">
               {[t("home.easy"), t("home.studentFriendly"), t("home.aiSupport")].map((item) => (
@@ -215,6 +214,12 @@ export default function Home() {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 pb-20" aria-label="Learning flow">
+        <motion.div initial="hidden" whileInView="show" viewport={{once:true,amount:.35}} variants={{show:{transition:{staggerChildren:.1}}}} className="grid gap-3 sm:grid-cols-5">
+          {learningFlow.map((step,index)=><motion.div key={step} variants={{hidden:{opacity:0,x:-12},show:{opacity:1,x:0}}} className="relative rounded-2xl border border-primary-100 bg-white px-4 py-5 text-center font-bold text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"><span className="mb-2 block text-xs text-primary-500">0{index+1}</span>{step}{index<learningFlow.length-1&&<FiArrowRight className="absolute -right-4 top-1/2 z-10 hidden -translate-y-1/2 text-primary-400 sm:block"/>}</motion.div>)}
+        </motion.div>
       </section>
 
       <section className="mx-auto max-w-7xl px-6 pb-24">

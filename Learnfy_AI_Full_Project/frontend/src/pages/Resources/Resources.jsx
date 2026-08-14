@@ -7,7 +7,7 @@ import useFetch from "../../hooks/useFetch";
 import { BASE_URL, deleteResource, getResources, uploadResource } from "../../services/api";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
-import Loader from "../../components/Loader";
+import { SkeletonGrid } from "../../components/Motion";
 import StreamSelect from "../../components/subjects/StreamSelect";
 import SubjectSelect from "../../components/subjects/SubjectSelect";
 import AcademicContextFields from "../../components/subjects/AcademicContextFields";
@@ -103,7 +103,7 @@ export default function Resources() {
       )}
 
       {loading ? (
-        <Loader />
+        <SkeletonGrid />
       ) : resources?.length ? (
         <><div className="mb-4 grid gap-3 sm:grid-cols-2"><StreamSelect value={filters.stream} includeAll onChange={(stream) => setFilters({ stream, subject: "" })} /><SubjectSelect stream={filters.stream} value={filters.subject} includeAll onChange={(subject) => setFilters({ ...filters, subject })} /></div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {resources.filter((resource) => !filters.subject || resource.subject === filters.subject).map((resource) => (

@@ -17,6 +17,7 @@ frontend/test-results/
 frontend/playwright-report/
 
 # Uploads
+backend/app/uploads/**
 backend/app/uploads/notes/*
 backend/app/uploads/pdf/*
 backend/app/uploads/profile/*
@@ -25,6 +26,9 @@ backend/app/uploads/flashcards/*
 backend/app/private/
 backend/app/private/**
 !backend/app/uploads/**/.gitkeep
+
+# Database backups (tracked schema/seed files remain tracked)
+*.sql
 
 # OS / editors
 .DS_Store
