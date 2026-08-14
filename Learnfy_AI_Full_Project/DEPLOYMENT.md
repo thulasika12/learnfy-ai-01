@@ -12,7 +12,12 @@ Fresh database:
 Set-Location .\backend
 .\venv\Scripts\python.exe -m alembic upgrade head
 .\venv\Scripts\python.exe -m alembic current
+.\venv\Scripts\python.exe .\scripts\seed_academic_catalogue.py
 ```
+
+The academic catalogue seed contains reference data only (no accounts), is idempotent,
+and is safe to rerun after migrations. Set the frontend service's build-time
+`VITE_API_URL` to the public HTTPS backend origin before deploying its Vite bundle.
 
 Existing development database: make a verified backup, set `DATABASE_URL`, then run the read-only check:
 
