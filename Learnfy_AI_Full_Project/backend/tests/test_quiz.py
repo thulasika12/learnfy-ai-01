@@ -2,7 +2,7 @@
 import unittest
 from unittest.mock import patch
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,6 +12,7 @@ from app.config.database import Base, get_db
 from app.models import auth_token, chat, flashcard, group, note, notification, payment, quiz, resource, user  # noqa: F401
 from app.models.user import User, UserRole
 from app.routes import ai
+from app.ai.quiz_generator import generate_quiz
 from app.utils.dependencies import get_current_user
 
 
@@ -96,6 +97,53 @@ class QuizApiTests(unittest.TestCase):
         with patch("app.services.entitlement_service.settings.FREE_QUIZ_LIMIT", 3):
             for language in ("en", "ta", "si"):
                 self.assertEqual(self.generate(language)["language"], language)
+
+    def test_empty_generated_questions_returns_controlled_error(self):
+        with patch("app.routes.ai.generate_quiz", return_value=[]):
+            response = self.client.post("/ai/generate-quiz", json={
+                "subject": "Mathematics", "topic": "Addition", "num_questions": 2,
+                "difficulty": "medium", "language": "en", "grade": "Grade 10", "medium": "en",
+            })
+        self.assertEqual(response.status_code, 502)
+        self.assertIn("failed validation", response.json()["detail"])
+
+    def test_generated_question_schema_rejects_invalid_options(self):
+        malformed = [{"question": "Broken?", "options": [], "answer": "none"}] * 2
+        with patch("app.routes.ai.generate_quiz", return_value=malformed):
+            response = self.client.post("/ai/generate-quiz", json={
+                "subject": "Mathematics", "topic": "Addition", "num_questions": 2,
+                "difficulty": "medium", "language": "en", "grade": "Grade 10", "medium": "en",
+            })
+        self.assertEqual(response.status_code, 502)
+
+    def test_request_validation_error_is_not_a_server_crash(self):
+        response = self.client.post("/ai/generate-quiz", json={
+            "subject": "Mathematics", "topic": "Addition", "num_questions": 2,
+            "difficulty": "medium", "language": "en", "medium": "en",
+        })
+        self.assertEqual(response.status_code, 422)
+
+
+class QuizGeminiParserTests(unittest.TestCase):
+    def test_json_code_fence_is_accepted(self):
+        fenced = f"```json\n{__import__('json').dumps(QUESTIONS)}\n```"
+        with patch("app.ai.quiz_generator.chat_completion", return_value=fenced):
+            self.assertEqual(generate_quiz("Math", "Addition", 2), QUESTIONS)
+
+    def test_invalid_json_retries_once_then_returns_502(self):
+        with patch("app.ai.quiz_generator.chat_completion", return_value="not json") as completion:
+            with self.assertRaises(HTTPException) as raised:
+                generate_quiz("Math", "Addition", 2)
+        self.assertEqual(raised.exception.status_code, 502)
+        self.assertEqual(completion.call_count, 2)
+
+    def test_gemini_503_is_preserved(self):
+        unavailable = HTTPException(status_code=503, detail="Gemini unavailable")
+        with patch("app.ai.quiz_generator.chat_completion", side_effect=unavailable) as completion:
+            with self.assertRaises(HTTPException) as raised:
+                generate_quiz("Math", "Addition", 2)
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual(completion.call_count, 1)
 
 
 if __name__ == "__main__":

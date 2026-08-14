@@ -3,10 +3,13 @@ AI Quiz Generator — produces MCQ questions from a subject/topic, or from
 supplied source text (e.g. a note's content), returned as strict JSON.
 """
 import json
+import re
 from typing import List, Optional
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 
+from app.schemas.ai_schema import GeneratedQuizQuestion
 from app.services.ai_service import chat_completion
 
 SYSTEM_PROMPT = (
@@ -23,6 +26,28 @@ LANGUAGE_NAMES = {
     "ta": "Tamil",
     "si": "Sinhala",
 }
+
+
+def _parse_questions(raw: str, expected_count: int) -> List[dict]:
+    cleaned = raw.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned, flags=re.IGNORECASE)
+    if fenced:
+        cleaned = fenced.group(1).strip()
+
+    try:
+        payload = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise ValueError("response was not valid JSON") from exc
+
+    if not isinstance(payload, list):
+        raise ValueError("response must be a JSON array")
+    if len(payload) != expected_count:
+        raise ValueError(f"expected {expected_count} questions but received {len(payload)}")
+
+    try:
+        return [GeneratedQuizQuestion.model_validate(item).model_dump() for item in payload]
+    except ValidationError as exc:
+        raise ValueError("one or more questions failed schema validation") from exc
 
 
 def generate_quiz(
@@ -49,40 +74,21 @@ def generate_quiz(
             f"{output_language} at {difficulty} difficulty for {grade} in {medium} learning medium. Keep content strictly appropriate to that grade. Keep the JSON property names in English."
         )
 
-    raw = chat_completion(SYSTEM_PROMPT, user_prompt, temperature=0.4)
+    last_error = None
+    for attempt in range(2):
+        prompt = user_prompt
+        if attempt:
+            prompt += (
+                "\n\nYour previous response was invalid. Return exactly the requested number "
+                "of questions as a bare JSON array matching the required schema."
+            )
+        raw = chat_completion(SYSTEM_PROMPT, prompt, temperature=0.4)
+        try:
+            return _parse_questions(raw, num_questions)
+        except ValueError as exc:
+            last_error = exc
 
-    # Defensive parsing in case the model wraps JSON in code fences
-    cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-
-    try:
-        questions = json.loads(cleaned)
-        if not isinstance(questions, list) or not questions:
-            raise ValueError("Expected a JSON array")
-        validated = []
-        for item in questions[:num_questions]:
-            if not isinstance(item, dict):
-                continue
-            question = str(item.get("question", "")).strip()
-            options = item.get("options")
-            answer = str(item.get("answer", "")).strip()
-            normalized_options = [str(option).strip() for option in options] if isinstance(options, list) else []
-            if (
-                question
-                and isinstance(options, list)
-                and len(options) == 4
-                and all(normalized_options)
-                and len(set(normalized_options)) == 4
-                and answer in normalized_options
-            ):
-                validated.append(
-                    {
-                        "question": question,
-                        "options": normalized_options,
-                        "answer": answer,
-                    }
-                )
-        if len(validated) != num_questions:
-            raise ValueError(f"Expected {num_questions} valid questions but received {len(validated)}")
-        return validated
-    except (json.JSONDecodeError, ValueError) as exc:
-        raise HTTPException(status_code=502, detail=f"AI returned an unexpected format: {exc}") from exc
+    raise HTTPException(
+        status_code=502,
+        detail="The AI returned invalid quiz content after two attempts. Please try again.",
+    ) from last_error

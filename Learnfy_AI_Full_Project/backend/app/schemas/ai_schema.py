@@ -5,7 +5,7 @@ and study planner.
 from datetime import datetime
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ChatRequest(BaseModel):
@@ -46,10 +46,36 @@ class QuizGenerateRequest(BaseModel):
     medium: Literal["en", "ta", "si"]
 
 
+class GeneratedQuizQuestion(BaseModel):
+    """Strict internal contract for untrusted Gemini quiz output."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    question: str = Field(min_length=1, max_length=2000)
+    options: List[str] = Field(min_length=4, max_length=4)
+    answer: str = Field(min_length=1, max_length=500)
+
+    @field_validator("options")
+    @classmethod
+    def validate_options(cls, options: List[str]) -> List[str]:
+        if any(not isinstance(option, str) or not option.strip() for option in options):
+            raise ValueError("Every option must be a non-empty string")
+        normalized = [option.strip() for option in options]
+        if len(set(normalized)) != 4:
+            raise ValueError("Quiz options must be unique")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_answer(self):
+        if self.answer not in self.options:
+            raise ValueError("The answer must exactly match one option")
+        return self
+
+
 class QuizQuestion(BaseModel):
     id: int
-    question: str
-    options: List[str]
+    question: str = Field(min_length=1, max_length=2000)
+    options: List[str] = Field(min_length=4, max_length=4)
 
 
 class QuizGenerateResponse(BaseModel):
@@ -57,7 +83,7 @@ class QuizGenerateResponse(BaseModel):
     topic: str
     language: str
     difficulty: str
-    questions: List[QuizQuestion]
+    questions: List[QuizQuestion] = Field(min_length=1, max_length=20)
 
 
 class QuizAnswerSubmission(BaseModel):

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
   FiAward,
@@ -17,7 +17,48 @@ import AcademicContextFields from "../../components/subjects/AcademicContextFiel
 import { useAcademicDefaults } from "../../hooks/useAcademicDefaults";
 import { motion } from "framer-motion";
 
-export default function QuizGenerator() {
+const apiErrorMessage = (error, fallback) => {
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (typeof detail?.message === "string" && detail.message.trim()) return detail.message;
+  if (!error?.response) return "The server could not be reached. Check your connection and try again.";
+  return `${fallback} (HTTP ${error.response.status}).`;
+};
+
+const isValidQuestion = (question) =>
+  Number.isInteger(question?.id) &&
+  typeof question?.question === "string" &&
+  question.question.trim().length > 0 &&
+  Array.isArray(question?.options) &&
+  question.options.length === 4 &&
+  question.options.every((option) => typeof option === "string" && option.trim().length > 0);
+
+class QuizErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("Quiz page render error", error, info);
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <Card>
+        <div role="alert" className="space-y-3 text-center">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white">The quiz could not be displayed</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300">The quiz data was not in the expected format. Please generate it again.</p>
+          <Button onClick={() => this.setState({ hasError: false })}>Try Again</Button>
+        </div>
+      </Card>
+    );
+  }
+}
+
+function QuizGeneratorContent() {
   const { language, t } = usePreferences();
   const [form, setForm] = useState({
     subject: "",
@@ -32,6 +73,8 @@ export default function QuizGenerator() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [empty, setEmpty] = useState(false);
 
   useEffect(() => {
     setForm((current) => ({ ...current, language }));
@@ -52,11 +95,25 @@ export default function QuizGenerator() {
     setQuiz(null);
     setAnswers({});
     setResult(null);
+    setErrorMessage("");
+    setEmpty(false);
     try {
       const response = await aiGenerateQuiz({ ...form, grade: academic.grade, medium: academic.medium, subject: academic.subject.trim() });
-      setQuiz(response.data);
+      const data = response?.data;
+      if (!Array.isArray(data?.questions) || data.questions.length === 0) {
+        setEmpty(true);
+        return;
+      }
+      if (!data.questions.every(isValidQuestion)) {
+        throw new Error("The server returned quiz data in an unexpected format.");
+      }
+      setQuiz(data);
     } catch (error) {
-      toast.error(error.response?.data?.detail || t("quiz.generateError"));
+      const message = error.message === "The server returned quiz data in an unexpected format."
+        ? error.message
+        : apiErrorMessage(error, t("quiz.generateError"));
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -73,16 +130,21 @@ export default function QuizGenerator() {
   };
 
   const handleSubmit = async () => {
-    if (!quiz) return;
-    const answeredCount = quiz.questions.filter((question) => answers[question.id]).length;
-    if (answeredCount !== quiz.questions.length) {
+    const questions = Array.isArray(quiz?.questions) ? quiz.questions.filter(isValidQuestion) : [];
+    if (!questions.length) {
+      setQuiz(null);
+      setEmpty(true);
+      return;
+    }
+    const answeredCount = questions.filter((question) => answers[question.id]).length;
+    if (answeredCount !== questions.length) {
       return toast.error(t("quiz.answerAll"));
     }
 
     setSubmitting(true);
     try {
       const response = await aiSubmitQuiz({
-        answers: quiz.questions.map((question) => ({
+        answers: questions.map((question) => ({
           question_id: question.id,
           selected_answer: answers[question.id],
         })),
@@ -90,7 +152,9 @@ export default function QuizGenerator() {
       setResult(response.data);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
-      toast.error(error.response?.data?.detail || t("quiz.submitError"));
+      const message = apiErrorMessage(error, t("quiz.submitError"));
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -100,6 +164,8 @@ export default function QuizGenerator() {
     setQuiz(null);
     setAnswers({});
     setResult(null);
+    setErrorMessage("");
+    setEmpty(false);
   };
 
   const tryAgain = () => generateQuiz();
@@ -189,6 +255,24 @@ export default function QuizGenerator() {
 
       {loading && <Loader label={t("quiz.generating")} />}
 
+      {!loading && errorMessage && (
+        <Card>
+          <div role="alert" className="space-y-3 text-center">
+            <p className="font-semibold text-red-700 dark:text-red-300">{errorMessage}</p>
+            <Button variant="secondary" onClick={tryAgain}><FiRefreshCw /> {t("quiz.tryAgain")}</Button>
+          </div>
+        </Card>
+      )}
+
+      {!loading && empty && !errorMessage && (
+        <Card>
+          <div role="status" className="space-y-3 text-center">
+            <p className="font-semibold text-slate-700 dark:text-slate-200">No quiz questions were generated. Try a different topic or try again.</p>
+            <Button variant="secondary" onClick={tryAgain}><FiRefreshCw /> {t("quiz.tryAgain")}</Button>
+          </div>
+        </Card>
+      )}
+
       {result && (
         <Card className="border border-primary-200 bg-brand-gradient-soft text-center dark:border-primary-800">
           <motion.div initial={{ scale: .75, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 220, damping: 18 }}><FiAward className="mx-auto mb-2 text-4xl text-primary-600" /></motion.div>
@@ -211,7 +295,7 @@ export default function QuizGenerator() {
         </Card>
       )}
 
-      {quiz && (
+      {Array.isArray(quiz?.questions) && quiz.questions.length > 0 && (
         <div className="space-y-4">
           {quiz.questions.map((question, index) => {
             const review = reviewByQuestion[question.id];
@@ -305,4 +389,8 @@ export default function QuizGenerator() {
       )}
     </div>
   );
+}
+
+export default function QuizGenerator() {
+  return <QuizErrorBoundary><QuizGeneratorContent /></QuizErrorBoundary>;
 }

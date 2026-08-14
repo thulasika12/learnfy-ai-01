@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     FREE_SUMMARY_LIMIT: int = 3
     FREE_QUIZ_LIMIT: int = 2
     FREE_FLASHCARDS_LIMIT: int = 2
-    FREE_STUDY_PLANNER_LIMIT: int = 1
+    FREE_STUDY_PLANNER_LIMIT: int = 5
     PREMIUM_AI_CHAT_LIMIT: int = 100
     PREMIUM_SUMMARY_LIMIT: int = 50
     PREMIUM_QUIZ_LIMIT: int = 30

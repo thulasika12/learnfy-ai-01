@@ -38,6 +38,17 @@ def consume(db: Session, user_id: int, feature: str) -> dict:
     db.commit()
     return {"used": usage.usage_count, "limit": limit, "remaining": limit - usage.usage_count}
 
+def refund(db: Session, user_id: int, feature: str) -> None:
+    """Release a reserved usage unit when an AI operation fails."""
+    usage = db.query(DailyAIUsage).filter_by(
+        user_id=user_id,
+        feature=feature,
+        usage_date=date.today(),
+    ).with_for_update().first()
+    if usage is not None and usage.usage_count > 0:
+        usage.usage_count -= 1
+        db.commit()
+
 def snapshot(db: Session, user_id: int) -> dict:
     premium = is_premium(db, user_id); today = date.today()
     rows = {row.feature: row.usage_count for row in db.query(DailyAIUsage).filter_by(user_id=user_id, usage_date=today)}

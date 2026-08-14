@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.ai.chatbot import solve_doubt
@@ -25,6 +26,7 @@ from app.schemas.ai_schema import (
     SummarizeResponse,
     QuizGenerateRequest,
     QuizGenerateResponse,
+    GeneratedQuizQuestion,
     QuizQuestion,
     QuizQuestionReview,
     QuizSubmitRequest,
@@ -36,7 +38,7 @@ from app.schemas.ai_schema import (
     FlashcardGenerateResponse,
 )
 from app.services.document_service import extract_text_from_upload
-from app.services.entitlement_service import consume
+from app.services.entitlement_service import consume, refund
 from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/ai", tags=["AI Features"])
@@ -100,16 +102,26 @@ def ai_generate_quiz(
 ):
     consume(db, current_user.id, "quiz")
     """AI Quiz Generator — generates MCQ questions for a subject/topic, optionally from note text."""
-    raw_questions = generate_quiz(
-        subject=payload.subject,
-        topic=payload.topic,
-        num_questions=payload.num_questions,
-        source_text=payload.source_text,
-        language=payload.language,
-        difficulty=payload.difficulty,
-        grade=payload.grade,
-        medium=payload.medium,
-    )
+    try:
+        generated = generate_quiz(
+            subject=payload.subject,
+            topic=payload.topic,
+            num_questions=payload.num_questions,
+            source_text=payload.source_text,
+            language=payload.language,
+            difficulty=payload.difficulty,
+            grade=payload.grade,
+            medium=payload.medium,
+        )
+        raw_questions = [GeneratedQuizQuestion.model_validate(question).model_dump() for question in generated]
+        if len(raw_questions) != payload.num_questions:
+            raise ValueError("AI returned an unexpected number of questions")
+    except (ValidationError, ValueError) as exc:
+        refund(db, current_user.id, "quiz")
+        raise HTTPException(status_code=502, detail="The generated quiz failed validation. Please try again.") from exc
+    except Exception:
+        refund(db, current_user.id, "quiz")
+        raise
 
     questions = []
     batch_id = str(uuid4())
@@ -227,12 +239,16 @@ def ai_study_plan(
 ):
     consume(db, current_user.id, "study_planner")
     """AI Study Planner — creates a personalized day-by-day study schedule."""
-    plan = generate_study_plan(
-        subjects=[f"{subject} ({payload.grade or 'unspecified level'}, {payload.medium or 'unspecified medium'}, respond in {payload.response_language})" for subject in payload.subjects],
-        hours_per_day=payload.hours_per_day,
-        days=payload.days,
-        goal=payload.goal,
-    )
+    try:
+        plan = generate_study_plan(
+            subjects=[f"{subject} ({payload.grade or 'unspecified level'}, {payload.medium or 'unspecified medium'}, respond in {payload.response_language})" for subject in payload.subjects],
+            hours_per_day=payload.hours_per_day,
+            days=payload.days,
+            goal=payload.goal,
+        )
+    except Exception:
+        refund(db, current_user.id, "study_planner")
+        raise
     return StudyPlanResponse(plan=plan)
 
 
