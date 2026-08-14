@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const user = { id: 7, name: "Payment Student", email: "pay@example.com", role: "student", is_active: true };
+const user = { id: 7, name: "Payment Student", email: "pay@example.com", role: "student", is_active: true, is_email_verified: true, onboarding_completed: true };
 const paidPlans = [
   { code:"free", name:"Free", amount:"0.00", currency:"LKR", duration_days:null, features:["Basic learning tools"] },
   { code:"premium_30_days", name:"30-Day Premium Access", amount:"500.00", currency:"LKR", duration_days:30, features:["Premium for 30 days"] },

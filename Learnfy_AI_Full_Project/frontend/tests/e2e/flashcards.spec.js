@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const user = { id: 1, name: "Test Student", email: "student@example.com", role: "student", is_active: true };
+const user = { id: 1, name: "Test Student", email: "student@example.com", role: "student", is_active: true, is_email_verified: true, onboarding_completed: true };
 
 test.beforeEach(async ({ page }, testInfo) => {
   await page.addInitScript(({ dark, userData }) => {
