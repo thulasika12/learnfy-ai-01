@@ -47,13 +47,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
 
-    # Optional SMTP email delivery
-    SMTP_HOST: str = ""
-    SMTP_PORT: int = 587
-    SMTP_USERNAME: str = ""
-    SMTP_PASSWORD: str = ""
-    SMTP_FROM_EMAIL: str = ""
-    SMTP_USE_TLS: bool = True
+    # Resend HTTPS email delivery
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "onboarding@resend.dev"
 
     # Stripe (server-side only; never expose these secrets to the frontend)
     STRIPE_SECRET_KEY: str = ""

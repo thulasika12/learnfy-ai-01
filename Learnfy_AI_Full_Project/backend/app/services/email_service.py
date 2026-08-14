@@ -1,8 +1,9 @@
-"""SMTP email delivery with a safe local-development logging fallback."""
+"""Transactional email delivery through the Resend HTTPS API."""
+from html import escape
 import logging
-import smtplib
-from email.message import EmailMessage
 from urllib.parse import urlencode
+
+import httpx
 
 from app.config.settings import settings
 
@@ -10,26 +11,30 @@ logger = logging.getLogger("learnfy_ai.email")
 
 
 def _send_email(to_email: str, subject: str, body: str) -> bool:
-    if not settings.SMTP_HOST:
-        logger.warning("SMTP is not configured; email was not sent to %s", to_email)
+    api_key = settings.RESEND_API_KEY.strip()
+    if not api_key:
+        logger.warning("Resend is not configured; email was not sent")
         return False
 
-    message = EmailMessage()
-    message["Subject"] = subject
-    message["From"] = settings.SMTP_FROM_EMAIL or settings.SMTP_USERNAME
-    message["To"] = to_email
-    message.set_content(body)
+    html_body = f'<div style="white-space: pre-wrap">{escape(body)}</div>'
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
-            if settings.SMTP_USE_TLS:
-                server.starttls()
-            if settings.SMTP_USERNAME:
-                server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            server.send_message(message)
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"from": settings.EMAIL_FROM, "to": [to_email], "subject": subject, "html": html_body},
+            timeout=20.0,
+        )
+        if not response.is_success:
+            logger.error(
+                "Resend delivery failed with status %s (request_id=%s)",
+                response.status_code,
+                response.headers.get("x-request-id", "unavailable"),
+            )
+            return False
         return True
-    except Exception:
-        logger.exception("Email delivery failed for %s", to_email)
+    except httpx.HTTPError as exc:
+        logger.error("Resend delivery failed due to %s", type(exc).__name__)
         return False
 
 

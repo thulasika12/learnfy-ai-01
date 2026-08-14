@@ -30,17 +30,20 @@ def register(payload: UserRegister, request: Request, db: Session = Depends(get_
     return {"message": "Account created successfully. You can now log in."}
 
 
-def issue_email_code(db: Session, user: User) -> None:
+def issue_email_code(db: Session, user: User) -> bool:
     code = f"{secrets.randbelow(1_000_000):06d}"
     db.query(EmailVerificationCode).filter(EmailVerificationCode.user_id == user.id, EmailVerificationCode.is_used.is_(False)).update({EmailVerificationCode.is_used: True}, synchronize_session=False)
     db.add(EmailVerificationCode(user_id=user.id, code_hash=hash_token(code), expires_at=datetime.now(timezone.utc)+timedelta(minutes=15)))
-    db.commit(); send_email_verification_code(user.email, code)
+    db.commit()
+    return send_email_verification_code(user.email, code)
 
 
 @router.post("/email-verification/request")
 def request_email_verification(request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if user.is_email_verified: return {"message": "Email is already verified"}
-    enforce(request, f"verify_email:{user.id}", 5, 3600); issue_email_code(db, user)
+    enforce(request, f"verify_email:{user.id}", 5, 3600)
+    if not issue_email_code(db, user):
+        raise HTTPException(status_code=502, detail="Verification email could not be delivered. Please try again later.")
     return {"message": "Verification code sent"}
 
 
